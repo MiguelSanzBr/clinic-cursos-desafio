@@ -5,10 +5,17 @@ cd "$(dirname "$0")/.."
 mkdir -p build
 uv run --no-project --with markdown --with weasyprint python - <<'PY'
 from pathlib import Path
+import re
 import markdown
 from weasyprint import HTML
 
-body = markdown.markdown(Path("DOCUMENTO.md").read_text(encoding="utf-8"), extensions=["tables", "fenced_code"])
+# smarty: aspas curvas e reticências reais, sem mexer no .md
+body = markdown.markdown(Path("DOCUMENTO.md").read_text(encoding="utf-8"),
+                         extensions=["tables", "fenced_code", "smarty"])
+# espaço não separável entre número e unidade (fora de <pre>, para não desalinhar o diagrama)
+UNIT = re.compile(r"(\d) (h|min|dias?|semanas?|GB|vCPU|p\.p\.|caracteres|leads?|conversas)\b|(US\$) (?=\d)")
+body = "".join(part if part.startswith("<pre") else UNIT.sub(lambda m: f"{m[1] or m[3]} {m[2] or ''}", part)
+               for part in re.split(r"(<pre.*?</pre>)", body, flags=re.S))
 html = ('<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">'
         '<title>Rastreamento antes do CRM - Miguel Sanz Boragan</title>'
         f'<link rel="stylesheet" href="../print.css"></head><body>{body}</body></html>')

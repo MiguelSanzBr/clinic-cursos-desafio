@@ -13,6 +13,7 @@ Duas colunas de tempo: o meu (relógio de quem está trabalhando) e o dos agente
 | Demo com TDD e documento | 28/10 12:29–12:54 | 0 (aguardando) | 2 em paralelo, 16 e 22 min | Agente de código (TDD) e agente de texto | 38 testes verdes; demo determinística; mutação da idempotência derrubou 3 testes; PDF com 5 páginas |
 | Revisão independente | 28/10 12:54–13:04 | 0 (aguardando) | 1, ~9 min | Agente revisor que não viu o plano, só enunciado, doc e código | 20 achados; os 3 mais graves eram bugs de verdade (ver "Erros da IA") |
 | Correções da revisão e verificação final | 28/10 13:05–13:14 | 0 (aguardando) | 2 em paralelo, 5 e 8 min | Agentes de código e texto retomados; 3 fatos de fornecedor conferidos na fonte antes de mandar corrigir | 51 testes verdes numa cópia limpa (só os arquivos do repositório); mutação da idempotência derrubou 4; PDF com 5 páginas |
+| Verificação de fontes e do servidor real | 28/10 13:20–13:45 | 0 (aguardando) | 1 agente, ~11 min | Agente verificador abriu cada fonte oficial; eu li o código do Chatwoot e subi o servidor com `fastapi dev` | Nenhum fato errado; 2 pendências resolvidas pela doc e pelo código; 5 imprecisões corrigidas; rotas reais respondendo (200, 422, 404, duplicado); saída do README idêntica à real |
 | Minha revisão do doc e do código | PREENCHER | PREENCHER | | Eu | PREENCHER: leitura de cada seção, fontes ⚠ abertas, testes rodados, mutação feita por mim |
 | QA final e envio | PREENCHER | PREENCHER | | Eu | PREENCHER |
 | **Total** | | **PREENCHER** | | | |
@@ -32,7 +33,9 @@ Ferramenta: Claude Code com o modelo Claude Opus 5.5 (Anthropic). Um agente prin
 3. O timestamp de exemplo do WhatsApp caía em 2025, não em 2026. Corrigido nos dados.
 4. A revisão independente achou 3 bugs: venda em quarentena nunca era reprocessada; uma LP paga que perdia UTM em 100% dos leads aparecia liberada quando o "como conheceu" estava preenchido; um toque com evidência de anúncio era colado na oportunidade aberta de outro produto. Corrigidos com testes novos.
 5. Fatos de fornecedor errados ou desatualizados no primeiro texto, conferidos na fonte: a Meta permite callback alternativo por WABA ou número (não "1 webhook por app"); a cobrança de mensagens de serviço desde 2026-10-01 já está confirmada; o plano de US$ 19 do Chatwoot se chama "Premium Support"; a Evolution API também integra a Cloud API oficial.
-6. PREENCHER: correções que eu fizer na minha revisão.
+6. A convenção mandava a campanha para a Hotmart sem notar que `sck` aceita só 30 caracteres e não aceita `_` (o exemplo de `utm_campaign` tem 35). O documento passou a mandar o `ep` no `sck`.
+7. O texto dizia que o webhook do RD Station Marketing trazia "só `funnel.origin` e `cf_*`"; o certo é que, de origem, traz só isso (o payload tem também nome, e-mail e telefone).
+8. PREENCHER: correções que eu fizer na minha revisão.
 
 ## Fontes consultadas (2026-10-28)
 
@@ -50,10 +53,17 @@ Ferramenta: Claude Code com o modelo Claude Opus 5.5 (Anthropic). Um agente prin
 | support.google.com/google-ads/answer/15081888 | Prazo de importação de conversão offline |
 | support.google.com/analytics/answer/6366371 | GA4 proíbe dado pessoal em URL e UTM |
 | help.hotmart.com/pt-br/article/216441797/ | `sck` e `src` para origem da venda |
+| developers.hotmart.com/docs/pt-BR/2.0.0/webhook/purchase-webhook/ e /docs/pt-BR/changelog | Campo `data.purchase.origin` do webhook; limite do `sck` |
+| docs.twenty.com/developers/extend/webhooks | Webhooks do Twenty |
+| github.com/chatwoot/chatwoot (código, tag v4.19.1) | `referral` em `content_attributes`, enviado no webhook `message_created` (desde v4.15.0, PR #14681) |
 | developers.rdstation.com/reference/webhooks-payload-mkt.md | Payload fixo do webhook do RD Station Marketing |
 | Krayin, EspoCRM, Evolution API, n8n (repositórios e páginas de licença) | Motivo do descarte |
 
-Ainda a confirmar com evento de teste real: campo exato de `sck`/`src` no webhook da Hotmart; se o Chatwoot repassa o `referral` do anúncio.
+Chatwoot e `referral`: conferido no código-fonte (branch develop, 2026-10-28). `app/services/whatsapp/incoming_message_base_service.rb` grava o `referral` da mensagem em `content_attributes[:referral]`, e `Message#webhook_data` envia `content_attributes` no webhook. Falta testar com um anúncio real.
+
+Hotmart: `sck`, `src` e `xcod` chegam em `data.purchase.origin` (referência do Webhook 2.0 e changelog de 2024-04-25); UTM não chega ao webhook; `sck` aceita até 30 caracteres, sem `_`. Falta ver um evento real preenchido.
+
+Ainda a confirmar: se a API de eventos de contato do RD Station Marketing traz UTM (o schema documentado não mostra).
 
 ## Verificações feitas
 

@@ -1,0 +1,13 @@
+[project]
+name = "clinic-cursos-desafio"
+version = "0.1.0"
+description = "Demo local: entrada identificada -> oportunidade -> encaminhamento -> venda confirmada pelo ERP"
+requires-python = ">=3.12"
+dependencies = ["fastapi[standard]"]
+
+[dependency-groups]
+dev = ["pytest"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

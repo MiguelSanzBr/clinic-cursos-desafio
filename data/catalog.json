@@ -1,0 +1,25 @@
+{
+  "units": ["sp", "rj", "cps", "online"],
+  "products": ["micropigmentacao", "harmonizacao", "paciente_modelo"],
+  "utm_sources": ["google", "meta", "youtube", "instagram", "rd_email", "hotmart", "offline", "indicacao"],
+  "utm_mediums": ["cpc", "paid_social", "organic_social", "email", "qr", "wa_link", "referral"],
+  "entry_points": {
+    "lp-sp-micro-01": {
+      "tipo": "lp", "unit": "sp", "product": "micropigmentacao", "path": "/lp/micro-sp",
+      "exige_parametros": true, "dono": "gestor de tráfego"
+    },
+    "site-online-contato-01": {
+      "tipo": "site", "unit": "online", "product": null, "path": "/contato",
+      "exige_parametros": false, "dono": "marketing"
+    },
+    "qr-cps-recepcao-01": {
+      "tipo": "qr", "unit": "cps", "product": "paciente_modelo",
+      "destino": "wa.me com texto pré-preenchido contendo [qr-cps-recepcao-01]",
+      "exige_parametros": false, "dono": "coordenação CPS"
+    }
+  },
+  "ads": {
+    "120210000000001": {"campaign": "rj-harmonizacao-captacao-202610", "unit": "rj", "product": "harmonizacao"}
+  },
+  "liberacao": {"max_taxa_problema": 0.05}
+}

@@ -1,0 +1,7 @@
+# material da Clinic (confidencial): fica fora do repo e do zip
+enunciado/
+.venv/
+__pycache__/
+.pytest_cache/
+build/
+*.db

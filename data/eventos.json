@@ -1,0 +1,105 @@
+{
+  "C1_form_1001": {
+    "submission_id": "form-1001",
+    "submitted_at": "2026-10-20T14:03:00-03:00",
+    "name": "Ana Souza",
+    "email": " Ana.Souza@Exemplo.com ",
+    "phone": "(11) 98765-4321",
+    "product": "micropigmentacao",
+    "unit": "sp",
+    "page_url": "https://clinic.exemplo/lp/micro-sp?utm_source=meta&utm_medium=paid_social&utm_campaign=sp-micropigmentacao-captacao-202610&utm_content=video-01&fbclid=IwAR0abc",
+    "referrer": "https://l.instagram.com/",
+    "how_heard": null,
+    "consent_marketing": true
+  },
+  "C2a_whatsapp_qr_cps": {
+    "object": "whatsapp_business_account",
+    "entry": [{"id": "WABA_1", "changes": [{"field": "messages", "value": {
+      "metadata": {"phone_number_id": "PNID_CENTRAL"},
+      "contacts": [{"wa_id": "5519991112222", "profile": {"name": "Bruna"}}],
+      "messages": [{"id": "wamid.QR001", "from": "5519991112222", "timestamp": "1792504800", "type": "text",
+                    "text": {"body": "Quero ser paciente modelo [qr-cps-recepcao-01]"}}]
+    }}]}]
+  },
+  "C2b_whatsapp_direto": {
+    "object": "whatsapp_business_account",
+    "entry": [{"id": "WABA_1", "changes": [{"field": "messages", "value": {
+      "metadata": {"phone_number_id": "PNID_CENTRAL"},
+      "contacts": [{"wa_id": "5521977776666", "profile": {"name": "Rafa"}}],
+      "messages": [{"id": "wamid.DIR001", "from": "5521977776666", "timestamp": "1792596600", "type": "text",
+                    "text": {"body": "oi, que cursos vocês têm?"}}]
+    }}]}]
+  },
+  "C3_ana_volta_por_anuncio_ctwa": {
+    "object": "whatsapp_business_account",
+    "entry": [{"id": "WABA_1", "changes": [{"field": "messages", "value": {
+      "metadata": {"phone_number_id": "PNID_CENTRAL"},
+      "contacts": [{"wa_id": "5511987654321", "profile": {"name": "Ana S."}}],
+      "messages": [{"id": "wamid.CTWA001", "from": "5511987654321", "timestamp": "1792670400", "type": "text",
+                    "text": {"body": "Olá! Quero saber mais sobre harmonização."},
+                    "referral": {"source_url": "https://fb.me/x", "source_id": "120210000000001", "source_type": "ad",
+                                 "headline": "Harmonização RJ", "ctwa_clid": "ARAkLk9"}}]
+    }}]}]
+  },
+  "C3b_ana_mesmo_anuncio_de_novo": {
+    "object": "whatsapp_business_account",
+    "entry": [{"id": "WABA_1", "changes": [{"field": "messages", "value": {
+      "metadata": {"phone_number_id": "PNID_CENTRAL"},
+      "contacts": [{"wa_id": "5511987654321", "profile": {"name": "Ana S."}}],
+      "messages": [{"id": "wamid.CTWA002", "from": "5511987654321", "timestamp": "1792756800", "type": "text",
+                    "text": {"body": "Tem turma em novembro?"},
+                    "referral": {"source_url": "https://fb.me/x", "source_id": "120210000000001", "source_type": "ad",
+                                 "headline": "Harmonização RJ", "ctwa_clid": "ARAkLk9b"}}]
+    }}]}]
+  },
+  "falha_form_1003_sem_utm": {
+    "submission_id": "form-1003",
+    "submitted_at": "2026-10-21T10:15:00-03:00",
+    "name": "Diego Martins",
+    "email": "diego.martins@exemplo.com",
+    "phone": "(11) 97654-3210",
+    "product": "micropigmentacao",
+    "unit": "sp",
+    "page_url": "https://clinic.exemplo/lp/micro-sp",
+    "referrer": "https://bit.ly/",
+    "how_heard": null,
+    "consent_marketing": false
+  },
+  "declarada_form_1004": {
+    "submission_id": "form-1004",
+    "submitted_at": "2026-10-22T16:40:00-03:00",
+    "name": "Carla Lima",
+    "email": "carla.lima@exemplo.com",
+    "phone": "(21) 99876-5432",
+    "product": "harmonizacao",
+    "unit": "rj",
+    "page_url": "https://clinic.exemplo/contato",
+    "referrer": "https://clinic.exemplo/",
+    "how_heard": "instagram",
+    "consent_marketing": false
+  },
+  "venda_c1": {
+    "erp_sale_id": "ERP-2026-5001",
+    "crm_opportunity_id": null,
+    "product": "micropigmentacao",
+    "unit": "sp",
+    "amount_cents": 349000,
+    "confirmed_at": "2026-10-25T10:00:00-03:00"
+  },
+  "venda_orfa": {
+    "erp_sale_id": "ERP-2026-5002",
+    "crm_opportunity_id": 9999,
+    "product": "micropigmentacao",
+    "unit": "sp",
+    "amount_cents": 349000,
+    "confirmed_at": "2026-10-26T11:00:00-03:00"
+  },
+  "venda_divergente": {
+    "erp_sale_id": "ERP-2026-5003",
+    "crm_opportunity_id": null,
+    "product": "harmonizacao",
+    "unit": "rj",
+    "amount_cents": 420000,
+    "confirmed_at": "2026-10-27T15:00:00-03:00"
+  }
+}

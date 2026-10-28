@@ -36,7 +36,7 @@ def count(client, table):
 def test_c1_origem_campanha_preservada_ate_venda(client):
     lead = form(client, "C1_form_1001")
     assert (lead["status"], lead["origin_type"], lead["source_channel"], lead["queue"]) == (
-        "processado", "observada", "meta", "comercial-sp")
+        "processado", "observada", "ig", "comercial-sp")
 
     venda = client.post("/events/erp/sale", json=ev("venda_c1", crm_opportunity_id=lead["opportunity_id"])).json()
     assert venda["status"] == "processado"
@@ -45,10 +45,11 @@ def test_c1_origem_campanha_preservada_ate_venda(client):
     assert opp["status"] == "ganha"
     assert opp["vendas"][0]["erp_sale_id"] == "ERP-2026-5001"
     first = opp["primeiro_toque"]
-    assert (first["utm_campaign"], first["utm_content"], first["click_id_type"], first["entry_point"]) == (
-        "sp-micropigmentacao-captacao-202610", "video-01", "fbclid", "lp-sp-micro-01")
+    assert (first["utm_campaign"], first["utm_id"], first["utm_content"], first["click_id_type"],
+            first["entry_point"]) == ("sp-micropigmentacao-captacao", "120200000000099", "video-01", "fbclid",
+                                      "lp-sp-micro-01")
     assert not any("@" in str(v) for v in first.values())  # toque sem dado pessoal
-    assert client.get("/quality/report").json()["vendas"]["por_origem_primeiro_toque"] == {"observada:meta": 1}
+    assert client.get("/quality/report").json()["vendas"]["por_origem_primeiro_toque"] == {"observada:ig": 1}
 
 
 def test_c2_qr_unidade_distinto_de_whatsapp_direto(client):
@@ -75,7 +76,7 @@ def test_c3_pessoa_existente_nova_campanha(client):
     jornada = client.get(f"/people/{c1['person_id']}/journey").json()
     assert len(jornada["oportunidades"]) == 2 and len(jornada["toques"]) == 2
     opp1 = client.get(f"/opportunities/{c1['opportunity_id']}").json()
-    assert opp1["primeiro_toque"]["utm_campaign"] == "sp-micropigmentacao-captacao-202610"  # 1º toque intacto
+    assert opp1["primeiro_toque"]["utm_campaign"] == "sp-micropigmentacao-captacao"  # 1º toque intacto
     assert opp1["primeiro_toque"] == opp1["ultimo_toque"]
 
     c3b = whatsapp(client, "C3b_ana_mesmo_anuncio_de_novo")  # 3º contato, mesmo produto e unidade
@@ -180,7 +181,7 @@ def test_falha_lp_sem_utm_detectada(client):
         "parametros_perdidos", "lp-sp-micro-01", {"referrer_host": "bit.ly"})
     assert client.get("/quality/report").json()["pontos_de_entrada"] == [
         {"entry_point": "lp-sp-micro-01", "total": 2, "desconhecida": 1, "com_problema": 1, "taxa_problema": 0.5,
-         "liberado": False}]
+         "status": "bloqueado"}]
 
 
 def test_lp_sem_utm_com_como_conheceu_nao_libera(client):
@@ -191,7 +192,7 @@ def test_lp_sem_utm_com_como_conheceu_nao_libera(client):
     assert report["issues_abertas"] == {"parametros_perdidos": 1}
     assert report["pontos_de_entrada"] == [
         {"entry_point": "lp-sp-micro-01", "total": 1, "desconhecida": 0, "com_problema": 1, "taxa_problema": 1.0,
-         "liberado": False}]
+         "status": "bloqueado"}]
 
 
 def test_relatorio_conta_leads_nao_mensagens(client):
@@ -202,7 +203,7 @@ def test_relatorio_conta_leads_nao_mensagens(client):
     assert report["origem_por_canal"] == {"desconhecida": 1, "observada:meta_ctwa": 1}
     assert report["pontos_de_entrada"] == [
         {"entry_point": "(sem ponto de entrada)", "total": 2, "desconhecida": 1, "com_problema": 1,
-         "taxa_problema": 0.5, "liberado": None}]
+         "taxa_problema": 0.5, "status": None}]
 
 
 def test_anuncio_fora_do_catalogo_vai_para_triagem(client):
@@ -322,3 +323,76 @@ def test_consentimento_registrado_na_jornada(client):
     assert count(client, "consent") == 2
     with pytest.raises(sqlite3.IntegrityError, match="append-only"):
         client.app.state.conn.execute("UPDATE consent SET granted = 1")
+
+
+def lead_sintetico(client, i, how_heard="instagram"):
+    """Lead em /contato com telefone e e-mail próprios. Sem "como conheceu" fica desconhecida (lead com problema)."""
+    return form(client, "declarada_form_1004", submission_id=f"sint-{i}", email=f"sint{i}@exemplo.com",
+                phone=f"(21) 9{i:04d}-{i:04d}", how_heard=how_heard)
+
+
+def test_liberacao_em_tres_estados(client):
+    form(client, "C1_form_1001")
+    form(client, "falha_form_1003_sem_utm")  # LP paga: 1 de 2 leads com problema
+    whatsapp(client, "C2a_whatsapp_qr_cps")  # QR: 1 lead sem problema
+    for i in range(30):
+        lead_sintetico(client, i)
+
+    def status():
+        return {p["entry_point"]: p["status"] for p in client.get("/quality/report").json()["pontos_de_entrada"]}
+
+    assert status() == {"lp-sp-micro-01": "bloqueado", "qr-cps-recepcao-01": "amostra_insuficiente",
+                        "site-online-contato-01": "liberado"}
+    # 50 leads com 2 problemas: a tabela tolera 1 em 50
+    for i in range(30, 48):
+        lead_sintetico(client, i)
+    for i in range(48, 50):
+        lead_sintetico(client, i, how_heard=None)
+    assert status()["site-online-contato-01"] == "bloqueado"
+
+
+def test_receita_sem_origem(client):
+    ana = form(client, "C1_form_1001")
+    diego = form(client, "falha_form_1003_sem_utm")
+    client.post("/events/erp/sale", json=ev("venda_c1", crm_opportunity_id=ana["opportunity_id"]))
+    client.post("/events/erp/sale", json=ev("venda_orfa", crm_opportunity_id=diego["opportunity_id"]))
+    report = client.get("/quality/report").json()
+    assert report["vendas"]["valor_cents"] == 698000
+    assert report["receita_sem_origem_cents"] == 349000  # só a venda do Diego, que chegou sem UTM
+
+
+def test_whatsapp_texto_nao_gravado(client):
+    qr = whatsapp(client, "C2a_whatsapp_qr_cps")
+    stored = client.app.state.conn.execute("SELECT payload FROM inbound_event WHERE id = ?",
+                                           (qr["event_id"],)).fetchone()[0]
+    assert "paciente modelo" not in stored  # o texto da conversa não fica no recibo
+    assert json.loads(stored) == {"wamid": "wamid.QR001", "from": "5519991112222", "timestamp": 1792504800,
+                                  "referral": None, "entry_point": "qr-cps-recepcao-01"}
+    # dedup segue pelo hash do payload original: reenvio igual é duplicado, texto diferente é conflito
+    assert whatsapp(client, "C2a_whatsapp_qr_cps")["status"] == "duplicado"
+    outro = ev("C2a_whatsapp_qr_cps")
+    outro["entry"][0]["changes"][0]["value"]["messages"][0]["text"]["body"] = "mudei de ideia"
+    assert client.post("/events/whatsapp", json=outro).json()["status"] == "conflito"
+
+
+def conversoes(client):
+    return [dict(r) for r in client.app.state.conn.execute(
+        "SELECT erp_sale_id, platform, click_id_type, click_id, event_id, status FROM platform_conversion ORDER BY id")]
+
+
+def test_venda_gera_conversao_para_plataforma(client):
+    ana = form(client, "C1_form_1001")  # fbclid na URL
+    client.post("/events/erp/sale", json=ev("venda_c1", crm_opportunity_id=ana["opportunity_id"]))
+    assert conversoes(client) == [{"erp_sale_id": "ERP-2026-5001", "platform": "meta", "click_id_type": "fbclid",
+                                   "click_id": "IwAR0abc", "event_id": "ERP-2026-5001", "status": "pendente"}]
+    diego = form(client, "falha_form_1003_sem_utm")  # sem click id: não há o que devolver à plataforma
+    client.post("/events/erp/sale", json=ev("venda_orfa", crm_opportunity_id=diego["opportunity_id"]))
+    assert len(conversoes(client)) == 1
+
+
+def test_paciente_modelo_nunca_vai_para_plataforma(client):
+    lead = form(client, "C1_form_1001", product="paciente_modelo", unit="cps")  # veio de anúncio, produto sensível
+    venda = ev("venda_c1", crm_opportunity_id=lead["opportunity_id"], product="paciente_modelo", unit="cps")
+    assert client.post("/events/erp/sale", json=venda).json()["status"] == "processado"
+    assert conversoes(client) == [{"erp_sale_id": "ERP-2026-5001", "platform": "meta", "click_id_type": None,
+                                   "click_id": None, "event_id": "ERP-2026-5001", "status": "bloqueado_sensivel"}]

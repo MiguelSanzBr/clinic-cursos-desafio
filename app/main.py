@@ -82,6 +82,7 @@ def create_app(db_path):
         ids = domain.identifiers(body.phone, body.email)
         if not ids:
             raise HTTPException(422, "formulário sem telefone nem e-mail válido")
+        # shortcut: o payload do formulário (com dado pessoal) expira em 30 dias em produção (não implementado)
         payload = body.model_dump(mode="json")
         touch, issues = domain.form_touch(payload, catalog)
         return db.record_contact(conn, "form", body.submission_id, payload, ids, body.name, touch,
@@ -105,12 +106,15 @@ def create_app(db_path):
         name = next((c.get("profile", {}).get("name") for c in value.contacts), None)
         touch, issues = domain.whatsapp_touch((msg.text or {}).get("body"), msg.referral, catalog)
         occurred_at = domain.utc_iso(datetime.fromtimestamp(msg.timestamp, UTC))
+        # o recibo do WhatsApp não guarda o texto da conversa: só o necessário para reprocessar a origem
+        stored = {"wamid": msg.id, "from": msg.from_, "timestamp": msg.timestamp, "referral": msg.referral,
+                  "entry_point": touch.get("entry_point")}
         return db.record_contact(conn, "whatsapp", msg.id, body.model_dump(mode="json", by_alias=True), ids, name,
-                                 touch, occurred_at, issues)
+                                 touch, occurred_at, issues, stored=stored)
 
     @app.post("/events/erp/sale")
     def erp_sale(body: ErpSale):
-        return db.record_sale(conn, body.model_dump(mode="json"), domain.utc_iso(body.confirmed_at))
+        return db.record_sale(conn, body.model_dump(mode="json"), domain.utc_iso(body.confirmed_at), catalog)
 
     @app.get("/people/{person_id}/journey")
     def person_journey(person_id: int):
@@ -122,7 +126,7 @@ def create_app(db_path):
 
     @app.get("/quality/report")
     def quality_report():
-        return db.quality_report(conn, catalog["liberacao"]["max_taxa_problema"])
+        return db.quality_report(conn, catalog["liberacao"])
 
     return app
 

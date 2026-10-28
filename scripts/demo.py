@@ -55,3 +55,9 @@ print("\nRelatório de qualidade (GET /quality/report):")
 print(json.dumps(client.get("/quality/report").json(), indent=2, ensure_ascii=False))
 print("\nEncaminhamento (db.dispatch_handoffs, atendimento simulado):")
 db.dispatch_handoffs(app.state.conn, lambda h: print(f"[ENCAMINHAMENTO] oportunidade {h['opportunity_id']} -> {h['queue']}"))
+
+print("\nOutbox de conversões para as plataformas (não envia nada):")
+for c in app.state.conn.execute("SELECT erp_sale_id, platform, status, click_id_type, click_id, event_id"
+                                " FROM platform_conversion ORDER BY id"):
+    print(f"[CONVERSAO] {c['erp_sale_id']} -> {c['platform']} {c['status']}"
+          f" ({c['click_id_type'] or 'sem click id'}={c['click_id'] or '-'}, event_id={c['event_id']})")

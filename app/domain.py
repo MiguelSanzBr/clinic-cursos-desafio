@@ -5,8 +5,9 @@ import re
 from datetime import UTC
 from urllib.parse import parse_qs, urlsplit
 
-UTM_KEYS = ("utm_source", "utm_medium", "utm_campaign", "utm_content")
+UTM_KEYS = ("utm_source", "utm_medium", "utm_campaign", "utm_id", "utm_content")
 CLICK_KEYS = ("gclid", "gbraid", "wbraid", "fbclid")
+PLATFORM = {"gclid": "google", "gbraid": "google", "wbraid": "google", "fbclid": "meta", "ctwa_clid": "meta"}
 CLICK_CHANNEL = {"gclid": "google", "gbraid": "google", "wbraid": "google",
                  "fbclid": "meta"}  # fbclid indica Meta, não prova mídia paga
 EP_CODE = re.compile(r"\[([a-z]+-[a-z]+-[a-z0-9-]+)\]", re.IGNORECASE)
@@ -129,6 +130,25 @@ def sale_problem(sale, opportunity):
     if any(sale.get(k) and sale[k] != opportunity[k] for k in ("product", "unit")):
         return "venda_divergente"
     return None
+
+
+def conversion(click_id_type, click_id, sensitive):
+    """Linha da outbox de conversão: a venda volta para a plataforma do clique."""
+    if sensitive:
+        # produto ligado a saúde nunca vira sinal para plataforma de anúncio: o click id não é copiado
+        return {"platform": PLATFORM[click_id_type], "click_id_type": None, "click_id": None,
+                "status": "bloqueado_sensivel"}
+    return {"platform": PLATFORM[click_id_type], "click_id_type": click_id_type, "click_id": click_id,
+            "status": "pendente"}
+
+
+def release_status(leads, problems, rules):
+    """Status de liberação de um ponto de entrada para o CRM. Reprovar exige menos evidência que aprovar."""
+    if leads < rules["min_leads"]:
+        return "bloqueado" if problems / leads > rules["max_taxa_problema"] else "amostra_insuficiente"
+    # tolerância: maior nº de problemas que ainda garante cobertura real >= 90% com 95% de confiança (Clopper-Pearson unilateral)
+    tolerated = [k for n, k in rules["tolerancia"] if n <= leads][-1]
+    return "liberado" if problems <= tolerated else "bloqueado"
 
 
 def queue_for(unit):

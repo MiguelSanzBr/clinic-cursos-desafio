@@ -1,4 +1,5 @@
 import json
+from math import comb
 from pathlib import Path
 
 import pytest
@@ -82,3 +83,12 @@ def test_pagina_fora_do_catalogo_abre_ep_desconhecido():
     touch, issues = domain.form_touch(payload, CATALOG)
     assert touch["entry_point"] is None
     assert issues == [("ep_desconhecido", None, {"path": "/blog/post-1"})]
+
+
+def test_tabela_de_tolerancia_garante_cobertura_de_90():
+    # com n leads e até k problemas, P(observar isso | cobertura real 90%) <= 5%; com k+1 já não garante
+    def chance(n, k):
+        return sum(comb(n, x) * 0.9 ** x * 0.1 ** (n - x) for x in range(n - k, n + 1))
+
+    for n, k in CATALOG["liberacao"]["tolerancia"]:
+        assert chance(n, k) <= 0.05 < chance(n, k + 1)

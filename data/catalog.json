@@ -1,8 +1,12 @@
 {
   "units": ["sp", "rj", "cps", "online"],
-  "products": ["micropigmentacao", "harmonizacao", "paciente_modelo"],
-  "utm_sources": ["google", "meta", "youtube", "instagram", "rd_email", "hotmart", "offline", "indicacao"],
-  "utm_mediums": ["cpc", "paid_social", "organic_social", "email", "qr", "wa_link", "referral"],
+  "products": {
+    "micropigmentacao": {"sensivel": false},
+    "harmonizacao": {"sensivel": false},
+    "paciente_modelo": {"sensivel": true}
+  },
+  "utm_sources": ["google", "fb", "ig", "msg", "an", "youtube", "rd_email", "hotmart", "offline", "indicacao"],
+  "utm_mediums": ["cpc", "paid_social", "organic_social", "organic", "email", "qr", "wa_link", "referral"],
   "entry_points": {
     "lp-sp-micro-01": {
       "tipo": "lp", "unit": "sp", "product": "micropigmentacao", "path": "/lp/micro-sp",
@@ -19,7 +23,7 @@
     }
   },
   "ads": {
-    "120210000000001": {"campaign": "rj-harmonizacao-captacao-202610", "unit": "rj", "product": "harmonizacao"}
+    "120210000000001": {"campaign": "rj-harmonizacao-captacao", "unit": "rj", "product": "harmonizacao"}
   },
-  "liberacao": {"max_taxa_problema": 0.05}
+  "liberacao": {"max_taxa_problema": 0.05, "min_leads": 30, "tolerancia": [[30, 0], [50, 1], [75, 2], [100, 4]]}
 }

@@ -60,6 +60,7 @@ CREATE TABLE IF NOT EXISTS touchpoint (
   utm_source      TEXT,
   utm_medium      TEXT,
   utm_campaign    TEXT,
+  utm_id          TEXT,
   utm_content     TEXT,
   click_id_type   TEXT CHECK (click_id_type IN ('gclid', 'gbraid', 'wbraid', 'fbclid', 'ctwa_clid')),
   click_id        TEXT,
@@ -103,6 +104,18 @@ CREATE TABLE IF NOT EXISTS erp_sale (
   amount_cents   INTEGER NOT NULL,
   confirmed_at   TEXT NOT NULL,
   event_id       INTEGER NOT NULL REFERENCES inbound_event (id)
+);
+
+-- Outbox de conversões: a venda volta para a plataforma do clique (Google ou Meta). A demo não envia nada.
+CREATE TABLE IF NOT EXISTS platform_conversion (
+  id            INTEGER PRIMARY KEY,
+  erp_sale_id   TEXT NOT NULL REFERENCES erp_sale (erp_sale_id),
+  platform      TEXT NOT NULL CHECK (platform IN ('google', 'meta')),
+  click_id_type TEXT,
+  click_id      TEXT,
+  event_id      TEXT NOT NULL,  -- = erp_sale_id: é por ele que a plataforma deduplica a conversão
+  status        TEXT NOT NULL CHECK (status IN ('pendente', 'bloqueado_sensivel')),
+  created_at    TEXT NOT NULL
 );
 
 -- Pendência de qualidade do rastreamento. detail é JSON sem dado pessoal.

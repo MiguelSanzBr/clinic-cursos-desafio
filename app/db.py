@@ -8,7 +8,7 @@ from pathlib import Path
 from app import domain
 
 SCHEMA = Path(__file__).with_name("schema.sql").read_text()
-TOUCH_FIELDS = ("contact_channel", "utm_source", "utm_medium", "utm_campaign", "utm_content",
+TOUCH_FIELDS = ("contact_channel", "utm_source", "utm_medium", "utm_campaign", "utm_id", "utm_content",
                 "click_id_type", "click_id", "ad_id", "entry_point", "unit", "product", "declared")
 
 
@@ -37,9 +37,10 @@ def open_issue(conn, kind, entry_point, event_id, detail, actor):
     audit(conn, actor, "issue.aberta", "tracking_issue", issue_id, event_id)
 
 
-def receive(conn, source, dedup_key, payload, actor):
+def receive(conn, source, dedup_key, payload, actor, stored=None):
     """Grava o recibo. Devolve (event_id, None) se é novo, ou (event_id, 'reprocessar' | 'duplicado' | 'conflito')."""
-    digest, raw = domain.payload_hash(payload), json.dumps(payload, ensure_ascii=False)
+    # o hash é sempre do payload original (dedup); o que se grava pode ser uma versão reduzida (stored)
+    digest, raw = domain.payload_hash(payload), json.dumps(payload if stored is None else stored, ensure_ascii=False)
     row = conn.execute(
         "INSERT INTO inbound_event (source, dedup_key, payload_hash, payload, received_at) VALUES (?, ?, ?, ?, ?)"
         " ON CONFLICT (source, dedup_key) DO NOTHING RETURNING id",
@@ -96,11 +97,12 @@ def open_opportunity(conn, person_id, product, unit, event_id, actor):
     return row
 
 
-def record_contact(conn, source, dedup_key, payload, identifiers, name, touch, occurred_at, issues, consent=None):
+def record_contact(conn, source, dedup_key, payload, identifiers, name, touch, occurred_at, issues, consent=None,
+                   stored=None):
     """Formulário ou WhatsApp: recibo, pessoa, oportunidade, toque e pendências, tudo ou nada."""
     actor = f"webhook:{source}"
     with conn:
-        event_id, repeated = receive(conn, source, dedup_key, payload, actor)
+        event_id, repeated = receive(conn, source, dedup_key, payload, actor, stored)
         if repeated in ("duplicado", "conflito"):
             return {"status": repeated, "event_id": event_id}
         person_id = resolve_person(conn, identifiers, name, event_id, actor)
@@ -129,7 +131,7 @@ def record_contact(conn, source, dedup_key, payload, identifiers, name, touch, o
             "origin_type": origin_type, "source_channel": source_channel, "queue": domain.queue_for(opp["unit"])}
 
 
-def record_sale(conn, payload, confirmed_at):
+def record_sale(conn, payload, confirmed_at, catalog):
     """Venda confirmada pelo ERP. Liga pela oportunidade que o CRM mandou ao ERP."""
     actor = "webhook:erp"
     with conn:
@@ -151,6 +153,14 @@ def record_sale(conn, payload, confirmed_at):
                      (payload["erp_sale_id"], opp["id"], payload["amount_cents"], confirmed_at, event_id))
         conn.execute("UPDATE opportunity SET status = 'ganha' WHERE id = ?", (opp["id"],))
         audit(conn, actor, "opportunity.ganha", "opportunity", opp["id"], event_id)
+        click = conn.execute("SELECT click_id_type, click_id FROM touchpoint WHERE opportunity_id = ? AND click_id IS NOT NULL"
+                             " ORDER BY occurred_at, id LIMIT 1", (opp["id"],)).fetchone()
+        if click:  # sem click id não há o que devolver à plataforma
+            sensitive = catalog["products"].get(opp["product"], {}).get("sensivel", False)
+            conn.execute("INSERT INTO platform_conversion (erp_sale_id, platform, click_id_type, click_id, event_id, status,"
+                         " created_at) VALUES (:sale, :platform, :click_id_type, :click_id, :sale, :status, :at)",
+                         domain.conversion(click["click_id_type"], click["click_id"], sensitive)
+                         | {"sale": payload["erp_sale_id"], "at": now()})
         if repeated == "reprocessar":
             conn.execute("UPDATE inbound_event SET status = 'processado' WHERE id = ?", (event_id,))
             conn.execute("UPDATE tracking_issue SET status = 'resolvida' WHERE event_id = ? AND status = 'aberta'",
@@ -223,7 +233,7 @@ def origin_key(touch):
 NO_ENTRY_POINT = "(sem ponto de entrada)"
 
 
-def quality_report(conn, max_problem_rate):
+def quality_report(conn, release_rules):
     # conta leads (1º toque de cada oportunidade), não mensagens
     leads = [attributed_touch(conn, r["id"]) for r in conn.execute("SELECT id FROM opportunity ORDER BY id").fetchall()]
     flagged = {r["event_id"] for r in conn.execute("SELECT event_id FROM tracking_issue WHERE status = 'aberta'"
@@ -239,21 +249,23 @@ def quality_report(conn, max_problem_rate):
     events = conn.execute("SELECT COUNT(*) FILTER (WHERE status = 'processado') AS processado,"
                           " COUNT(*) FILTER (WHERE status = 'quarentena') AS quarentena,"
                           " COALESCE(SUM(duplicates), 0) AS duplicatas_recebidas FROM inbound_event").fetchone()
-    sales = conn.execute("SELECT opportunity_id, amount_cents FROM erp_sale").fetchall()
+    sales = [(s["amount_cents"], attributed_touch(conn, s["opportunity_id"]))
+             for s in conn.execute("SELECT opportunity_id, amount_cents FROM erp_sale").fetchall()]
     return {
         "origem_por_canal": dict(sorted(Counter(origin_key(t) for t in leads).items())),
-        # shortcut: liberado olha só a taxa; amostra mínima e período de observação do checklist ficam fora da demo.
-        # Sem ponto de entrada (WhatsApp direto, anúncio CTWA) não há canal a liberar: liberado None.
+        # shortcut: o período de observação do checklist (14 dias) fica fora da demo; só conta leads.
+        # Sem ponto de entrada (WhatsApp direto, anúncio CTWA) não há canal a liberar: status None.
         "pontos_de_entrada": [
             {"entry_point": ep, **p, "taxa_problema": round(p["com_problema"] / p["total"], 3),
-             "liberado": None if ep == NO_ENTRY_POINT else p["com_problema"] / p["total"] <= max_problem_rate}
+             "status": None if ep == NO_ENTRY_POINT else domain.release_status(p["total"], p["com_problema"], release_rules)}
             for ep, p in sorted(points.items())],
         "issues_abertas": {r["kind"]: r["n"] for r in issues},
         "eventos": dict(events),
         "vendas": {
             "total": len(sales),
-            "valor_cents": sum(s["amount_cents"] for s in sales),
-            "por_origem_primeiro_toque": dict(sorted(Counter(
-                origin_key(attributed_touch(conn, s["opportunity_id"])) for s in sales).items())),
+            "valor_cents": sum(amount for amount, _ in sales),
+            "por_origem_primeiro_toque": dict(sorted(Counter(origin_key(t) for _, t in sales).items())),
         },
+        # receita que não dá para atribuir a canal observado: fica à parte, não é redistribuída
+        "receita_sem_origem_cents": sum(amount for amount, t in sales if t["origin_type"] != "observada"),
     }

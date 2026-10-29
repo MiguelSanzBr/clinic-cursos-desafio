@@ -1,0 +1,214 @@
+[C1] form-1001 Ana, LP paga com UTM -> processado (origem observada:ig/paid_social, fila comercial-sp, pessoas=1, toques=1)
+[C2] WhatsApp Bruna, QR da recepção CPS -> processado (origem observada:offline/qr, fila agenda-cps, pessoas=2, toques=2)
+[C2] WhatsApp direto, sem código -> processado (origem desconhecida, fila triagem-bot, pessoas=3, toques=3)
+[C3] Ana volta por anúncio Click-to-WhatsApp RJ -> processado (origem observada:meta_ctwa, fila comercial-rj, pessoas=3, toques=4)
+[C3] Ana de novo pelo mesmo anúncio -> processado (origem observada:meta_ctwa, fila comercial-rj, pessoas=3, toques=5)
+[C4] reenvio form-1001 -> duplicado (pessoas=3, toques=5)
+[C4] reenvio wamid.QR001 -> duplicado (pessoas=3, toques=5)
+[C4] mensagem da Ana repassada pelo Chatwoot (segunda via) -> duplicado (pessoas=3, toques=5)
+[C5] ERP confirma ERP-2026-5001 da oportunidade da Ana -> processado (pessoas=3, toques=5)
+[C5] oportunidade 1 ganha com ERP-2026-5001; origem atribuída observada:ig/paid_social, sp-micropigmentacao-captacao, lp-sp-micro-01
+[FALHA] form-1003 Diego, LP paga sem UTM (link do anúncio sem parâmetros) -> processado (origem desconhecida, fila comercial-sp, pessoas=4, toques=6)
+[DECLARADA] form-1004 Carla, /contato com 'como conheceu' -> processado (origem declarada, fila comercial-rj, pessoas=5, toques=7)
+[ORFA] ERP-2026-5002 para oportunidade 9999 -> quarentena (motivo venda_sem_oportunidade, pessoas=5, toques=7)
+[ORFA] ERP reenvia ERP-2026-5002 com a oportunidade do Diego -> processado (pessoas=5, toques=7)
+[DIVERGENTE] ERP-2026-5003 harmonizacao/rj na oportunidade da Bruna (paciente_modelo/cps) -> quarentena (motivo venda_divergente, pessoas=5, toques=7)
+[CONSENTIMENTO] form-1005 Eduardo, /contato com gclid, aceita mensagens mas não anúncios -> processado (origem observada:google, fila comercial-sp, pessoas=6, toques=8)
+[CONSENTIMENTO] ERP confirma ERP-2026-5004 da oportunidade do Eduardo -> processado (pessoas=6, toques=8)
+[Q] leitura de /q/qr-cps-recepcao-01 com UTM -> 307 wa.me, texto "Olá! Quero informações (protocolo 5CJZJ)"
+[Q] WhatsApp da Fernanda com o protocolo da leitura -> processado (origem observada:offline/qr, fila agenda-cps, pessoas=7, toques=9)
+[ATENDIMENTO] etiqueta em_negociacao na conversa da Carla -> processado (oportunidade 6, estágio em_negociacao)
+[ATENDIMENTO] a mesma etiqueta gravada pelo núcleo volta (eco) -> ignorado
+
+Jornada da Ana (GET /people/1/journey, campos nulos omitidos):
+{
+  "person_id": 1,
+  "nome": "Ana Souza",
+  "oportunidades": [
+    {
+      "id": 1,
+      "product": "micropigmentacao",
+      "unit": "sp",
+      "status": "ganha"
+    },
+    {
+      "id": 4,
+      "product": "harmonizacao",
+      "unit": "rj",
+      "status": "aberta"
+    }
+  ],
+  "toques": [
+    {
+      "id": 1,
+      "person_id": 1,
+      "opportunity_id": 1,
+      "event_id": 1,
+      "occurred_at": "2026-10-20T17:03:00+00:00",
+      "contact_channel": "form",
+      "origin_type": "observada",
+      "source_channel": "ig/paid_social",
+      "utm_source": "ig",
+      "utm_medium": "paid_social",
+      "utm_campaign": "sp-micropigmentacao-captacao",
+      "utm_id": "120200000000099",
+      "utm_content": "video-01",
+      "click_id_type": "fbclid",
+      "click_id": "IwAR0abc",
+      "entry_point": "lp-sp-micro-01",
+      "unit": "sp",
+      "product": "micropigmentacao",
+      "is_test": 0,
+      "evidence_level": "campanha"
+    },
+    {
+      "id": 4,
+      "person_id": 1,
+      "opportunity_id": 4,
+      "event_id": 4,
+      "occurred_at": "2026-10-22T12:00:00+00:00",
+      "contact_channel": "whatsapp",
+      "origin_type": "observada",
+      "source_channel": "meta_ctwa",
+      "utm_campaign": "rj-harmonizacao-captacao",
+      "click_id_type": "ctwa_clid",
+      "click_id": "ARAkLk9",
+      "ad_id": "120210000000001",
+      "entry_point": "ctwa-rj-harmo-01",
+      "unit": "rj",
+      "product": "harmonizacao",
+      "is_test": 0,
+      "evidence_level": "anuncio"
+    },
+    {
+      "id": 5,
+      "person_id": 1,
+      "opportunity_id": 4,
+      "event_id": 5,
+      "occurred_at": "2026-10-23T12:00:00+00:00",
+      "contact_channel": "whatsapp",
+      "origin_type": "observada",
+      "source_channel": "meta_ctwa",
+      "utm_campaign": "rj-harmonizacao-captacao",
+      "click_id_type": "ctwa_clid",
+      "click_id": "ARAkLk9b",
+      "ad_id": "120210000000001",
+      "entry_point": "ctwa-rj-harmo-01",
+      "unit": "rj",
+      "product": "harmonizacao",
+      "is_test": 0,
+      "evidence_level": "anuncio"
+    }
+  ],
+  "consentimentos": [
+    {
+      "purpose": "marketing",
+      "granted": true,
+      "at": "2026-10-20T17:03:00+00:00",
+      "event_id": 1
+    },
+    {
+      "purpose": "ads",
+      "granted": true,
+      "at": "2026-10-20T17:03:00+00:00",
+      "event_id": 1
+    }
+  ]
+}
+
+Relatório de qualidade (GET /quality/report):
+{
+  "origem_por_canal": {
+    "declarada:instagram": 1,
+    "desconhecida": 2,
+    "observada:google": 1,
+    "observada:ig/paid_social": 1,
+    "observada:meta_ctwa": 1
+  },
+  "paciente_modelo": {
+    "origem_por_canal": {
+      "observada:offline/qr": 2
+    },
+    "vendas": 0,
+    "valor_cents": 0
+  },
+  "pontos_de_entrada": [
+    {
+      "entry_point": "(sem ponto de entrada)",
+      "total": 1,
+      "desconhecida": 1,
+      "com_problema": 1,
+      "taxa_problema": 1.0,
+      "status": null
+    },
+    {
+      "entry_point": "ctwa-rj-harmo-01",
+      "total": 1,
+      "desconhecida": 0,
+      "com_problema": 0,
+      "taxa_problema": 0.0,
+      "status": "amostra_insuficiente"
+    },
+    {
+      "entry_point": "lp-sp-micro-01",
+      "total": 2,
+      "desconhecida": 1,
+      "com_problema": 1,
+      "taxa_problema": 0.5,
+      "status": "bloqueado"
+    },
+    {
+      "entry_point": "qr-cps-recepcao-01",
+      "total": 2,
+      "desconhecida": 0,
+      "com_problema": 0,
+      "taxa_problema": 0.0,
+      "status": "amostra_insuficiente",
+      "leituras": 1,
+      "taxa_chegada": 1.0
+    },
+    {
+      "entry_point": "site-online-contato-01",
+      "total": 2,
+      "desconhecida": 0,
+      "com_problema": 0,
+      "taxa_problema": 0.0,
+      "status": "amostra_insuficiente"
+    }
+  ],
+  "issues_abertas": {
+    "parametros_perdidos": 1,
+    "venda_divergente": 1
+  },
+  "eventos": {
+    "processado": 14,
+    "quarentena": 1,
+    "duplicatas_recebidas": 4
+  },
+  "vendas": {
+    "total": 3,
+    "valor_cents": 1047000,
+    "por_origem_atribuida": {
+      "desconhecida": 1,
+      "observada:google": 1,
+      "observada:ig/paid_social": 1
+    },
+    "valor_em_pontos_liberados_cents": 0
+  },
+  "receita_sem_origem_cents": 349000,
+  "receita_em_quarentena_cents": 420000
+}
+
+Encaminhamento (db.dispatch_handoffs, atendimento simulado):
+[ENCAMINHAMENTO] oportunidade 1 -> comercial-sp
+[ENCAMINHAMENTO] oportunidade 2 -> agenda-cps
+[ENCAMINHAMENTO] oportunidade 3 -> triagem-bot
+[ENCAMINHAMENTO] oportunidade 4 -> comercial-rj
+[ENCAMINHAMENTO] oportunidade 5 -> comercial-sp
+[ENCAMINHAMENTO] oportunidade 6 -> comercial-rj
+[ENCAMINHAMENTO] oportunidade 7 -> comercial-sp
+[ENCAMINHAMENTO] oportunidade 8 -> agenda-cps
+
+Outbox de conversões para as plataformas (não envia nada):
+[CONVERSAO] ERP-2026-5001 -> meta pendente (fbclid=IwAR0abc, event_id=ERP-2026-5001)
+[CONVERSAO] ERP-2026-5004 -> google bloqueado_consentimento (click id não copiado, event_id=ERP-2026-5004)

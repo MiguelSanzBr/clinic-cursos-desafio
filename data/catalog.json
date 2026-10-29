@@ -1,5 +1,8 @@
 {
   "units": ["sp", "rj", "cps", "online"],
+  "dominios": ["clinic.exemplo"],
+  "site": "https://clinic.exemplo",
+  "whatsapp": "5511940000000",
   "products": {
     "micropigmentacao": {"sensivel": false},
     "harmonizacao": {"sensivel": false},
@@ -7,23 +10,36 @@
   },
   "utm_sources": ["google", "fb", "ig", "msg", "an", "youtube", "rd_email", "hotmart", "offline", "indicacao"],
   "utm_mediums": ["cpc", "paid_social", "organic_social", "organic", "email", "qr", "wa_link", "referral"],
+  "objetivos_campanha": ["captacao", "paciente", "marca"],
+  "referrers_busca": ["google.*", "bing.com", "duckduckgo.com"],
   "entry_points": {
     "lp-sp-micro-01": {
-      "tipo": "lp", "unit": "sp", "product": "micropigmentacao", "path": "/lp/micro-sp",
+      "tipo": "lp", "unit": "sp", "product": "micropigmentacao", "path": "/lp/micro-sp", "q": "pagina",
       "exige_parametros": true, "dono": "gestor de tráfego"
     },
     "site-online-contato-01": {
-      "tipo": "site", "unit": "online", "product": null, "path": "/contato",
+      "tipo": "site", "unit": null, "product": null, "path": "/contato",
       "exige_parametros": false, "dono": "marketing"
     },
+    "ctwa-rj-harmo-01": {
+      "tipo": "ctwa", "unit": "rj", "product": "harmonizacao",
+      "destino": "anúncio Click-to-WhatsApp 120210000000001", "exige_parametros": false, "dono": "gestor de tráfego"
+    },
     "qr-cps-recepcao-01": {
-      "tipo": "qr", "unit": "cps", "product": "paciente_modelo",
-      "destino": "wa.me com texto pré-preenchido contendo [qr-cps-recepcao-01]",
+      "tipo": "qr", "unit": "cps", "product": "paciente_modelo", "q": "whatsapp",
+      "destino": "/q/qr-cps-recepcao-01 -> wa.me com o protocolo; o QR antigo leva [qr-cps-recepcao-01] no texto",
       "exige_parametros": false, "dono": "coordenação CPS"
     }
   },
   "ads": {
-    "120210000000001": {"campaign": "rj-harmonizacao-captacao", "unit": "rj", "product": "harmonizacao"}
+    "120210000000001": {"campaign": "rj-harmonizacao-captacao", "unit": "rj", "product": "harmonizacao",
+                        "entry_point": "ctwa-rj-harmo-01"}
   },
-  "liberacao": {"max_taxa_problema": 0.05, "min_leads": 30, "tolerancia": [[30, 0], [50, 1], [75, 2], [100, 4]]}
+  "liberacao": {"max_taxa_problema": 0.05, "min_leads": 30, "tolerancia": [[30, 0], [50, 1], [75, 2], [100, 4]],
+                "min_dias": 7, "rebloqueio_janela": 50, "rebloqueio_problemas": 7, "rebloqueio_seguidos": 5,
+                "min_leituras": 20, "min_taxa_chegada": 0.6},
+  "validade_oportunidade_dias": 90,
+  "validade_click_id_dias": {"google": 90, "meta": 90},
+  "validade_protocolo_dias": 7,
+  "robos_previa": ["facebookexternalhit", "WhatsApp", "Twitterbot", "Slackbot", "TelegramBot"]
 }

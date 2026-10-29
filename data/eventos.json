@@ -10,7 +10,8 @@
     "page_url": "https://clinic.exemplo/lp/micro-sp?utm_source=ig&utm_medium=paid_social&utm_campaign=sp-micropigmentacao-captacao&utm_id=120200000000099&utm_content=video-01&fbclid=IwAR0abc",
     "referrer": "https://l.instagram.com/",
     "how_heard": null,
-    "consent_marketing": true
+    "consent_marketing": true,
+    "consent_ads": true
   },
   "C2a_whatsapp_qr_cps": {
     "object": "whatsapp_business_account",
@@ -52,6 +53,19 @@
                                  "headline": "Harmonização RJ", "ctwa_clid": "ARAkLk9b"}}]
     }}]}]
   },
+  "chatwoot_ana_ctwa": {
+    "event": "message_created",
+    "id": 9001,
+    "message_type": "incoming",
+    "source_id": "wamid.CTWA001",
+    "content": "Olá! Quero saber mais sobre harmonização.",
+    "created_at": "2026-10-22T12:00:04.000Z",
+    "private": false,
+    "content_attributes": {"referral": {"source_url": "https://fb.me/x", "source_id": "120210000000001",
+                                        "source_type": "ad", "headline": "Harmonização RJ", "ctwa_clid": "ARAkLk9"}},
+    "sender": {"id": 31, "name": "Ana S.", "phone_number": "+5511987654321", "type": "contact"},
+    "conversation": {"id": 77, "inbox_id": 2}
+  },
   "falha_form_1003_sem_utm": {
     "submission_id": "form-1003",
     "submitted_at": "2026-10-21T10:15:00-03:00",
@@ -61,7 +75,7 @@
     "product": "micropigmentacao",
     "unit": "sp",
     "page_url": "https://clinic.exemplo/lp/micro-sp",
-    "referrer": "https://bit.ly/",
+    "referrer": "https://l.instagram.com/",
     "how_heard": null,
     "consent_marketing": false
   },
@@ -77,6 +91,34 @@
     "referrer": "https://clinic.exemplo/",
     "how_heard": "instagram",
     "consent_marketing": false
+  },
+  "consentimento_form_1005": {
+    "submission_id": "form-1005",
+    "submitted_at": "2026-10-23T11:20:00-03:00",
+    "name": "Eduardo Ramos",
+    "email": "eduardo.ramos@exemplo.com",
+    "phone": "(11) 96543-2109",
+    "product": "micropigmentacao",
+    "unit": "sp",
+    "page_url": "https://clinic.exemplo/contato?gclid=Cj0KCQjw1",
+    "referrer": "https://www.google.com/",
+    "how_heard": null,
+    "consent_marketing": true
+  },
+  "Q1_whatsapp_protocolo": {
+    "object": "whatsapp_business_account",
+    "entry": [{"id": "WABA_1", "changes": [{"field": "messages", "value": {
+      "metadata": {"phone_number_id": "PNID_CENTRAL"},
+      "contacts": [{"wa_id": "5519988887777", "profile": {"name": "Fernanda"}}],
+      "messages": [{"id": "wamid.Q001", "from": "5519988887777", "timestamp": "1792843200", "type": "text",
+                    "text": {"body": "Olá! Quero informações (protocolo do link lido)"}}]
+    }}]}]
+  },
+  "atendimento_em_negociacao": {
+    "event_id": "cw-evt-0001",
+    "phone": "+5521998765432",
+    "label": "em_negociacao",
+    "origin_system": "chatwoot"
   },
   "venda_c1": {
     "erp_sale_id": "ERP-2026-5001",
@@ -101,5 +143,13 @@
     "unit": "rj",
     "amount_cents": 420000,
     "confirmed_at": "2026-10-27T15:00:00-03:00"
+  },
+  "venda_sem_consentimento": {
+    "erp_sale_id": "ERP-2026-5004",
+    "crm_opportunity_id": null,
+    "product": "micropigmentacao",
+    "unit": "sp",
+    "amount_cents": 349000,
+    "confirmed_at": "2026-10-27T16:00:00-03:00"
   }
 }

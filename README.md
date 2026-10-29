@@ -1,361 +1,128 @@
 # Demo local: da entrada identificada à venda confirmada pelo ERP
 
 Fatia pedida no case: **entrada identificada → contato/oportunidade → encaminhamento do atendimento → venda confirmada pelo ERP**.
-WhatsApp, ERP, atendimento e a IA de triagem são simulados. Não há interface gráfica: a verificação é por testes e por um script que imprime cada passo.
+WhatsApp, ERP e atendimento são simulados, e a IA de triagem é só a fila `triagem-bot`; o webhook segue o formato da Cloud API da Meta (com `referral`) e o `message_created` do Chatwoot, pelo mesmo fluxo e o mesmo recibo. Sem interface gráfica: a verificação é por testes e por um script.
 
-## O que a demo prova
+## Verifique em 2 minutos
 
-- A origem de campanha de um lead chega intacta à venda, ligada pelo `crm_opportunity_id` que o ERP devolve.
-- Lead de QR de unidade e contato direto pelo WhatsApp ficam registrados de forma diferente. O direto fica `desconhecida`, sem canal inventado.
-- Quem volta é reconhecido por telefone ou e-mail normalizado, nunca por nome. Interesse novo vira oportunidade nova e o primeiro toque da antiga não muda.
-- Evento repetido não gera efeito. Mesmo id com conteúdo diferente vira pendência e não sobrescreve o original. O recibo é imutável no banco.
-- Venda confirmada fecha a oportunidade. Venda sem oportunidade, ou com produto/unidade diferente da oportunidade, fica em quarentena sem aplicar nada, e é reprocessada quando o ERP reenvia corrigida.
-- Uma falha real de rastreamento (LP paga sem UTM) é detectada, registrada e bloqueia a liberação daquele ponto de entrada, sem perder o lead.
-- O encaminhamento sai de uma outbox gravada junto com a oportunidade. Timeout fica `incerto` e não é reenviado às cegas.
-- Cada ponto de entrada recebe um de três estados (`bloqueado`, `amostra_insuficiente`, `liberado`) por regra com amostra mínima, e a receita sem origem observada aparece à parte.
-- A venda ligada volta para a plataforma do clique (Google ou Meta) por uma outbox de conversões. Produto sensível (`paciente_modelo`) nunca sai, nem o click id.
-
-## Como rodar
-
-Requer [uv](https://docs.astral.sh/uv/) e Python 3.12 ou mais novo.
+Requer [uv](https://docs.astral.sh/uv/) e Python 3.12+.
 
 ```bash
 uv sync
-uv run pytest -v
-uv run python scripts/demo.py
+uv run pytest -q                 # termina com "174 passed" e não cria arquivo na raiz
+uv run python scripts/demo.py    # recria demo.db e imprime cada passo
+uv run python scripts/demo.py | diff - saida-esperada.txt && echo "saída igual à esperada"
 ```
 
-Opcional, para explorar a API e o banco:
-
-```bash
-uv run fastapi dev app/main.py        # http://127.0.0.1:8000/docs
-sqlite3 demo.db "SELECT id, opportunity_id, origin_type, source_channel, utm_campaign, entry_point FROM touchpoint"
-```
-
-`scripts/demo.py` apaga e recria `demo.db` a cada execução. Os testes usam banco em memória.
-
-## Onde está cada coisa
-
-| Arquivo | Conteúdo |
-|---|---|
-| `app/schema.sql` | Tabelas, `CHECK`s, índice único de oportunidade aberta, triggers append-only e de recibo imutável |
-| `app/domain.py` | Regras puras: telefone, e-mail, origem, convenção de UTM, ponto de entrada, venda divergente, conversão para plataforma, estado de liberação, fila |
-| `app/db.py` | Todo o SQL: recibo com dedup e reprocessamento, identidade, oportunidade, toque, consentimento, venda, relatório, outbox de encaminhamento e de conversões |
-| `app/main.py` | Rotas FastAPI e validação de entrada (Pydantic) |
-| `data/catalog.json` | A convenção: unidades, produtos (com `sensivel`), listas de `utm_source` e `utm_medium`, pontos de entrada, anúncios, regra de liberação |
-| `data/eventos.json` | Payloads de exemplo (dados fictícios), usados pela demo e pelos testes |
-
-Rotas: `POST /events/form`, `POST /events/whatsapp` (formato do webhook da WhatsApp Cloud API), `POST /events/erp/sale`, `GET /people/{id}/journey`, `GET /opportunities/{id}`, `GET /quality/report`.
-
-## Cenários do enunciado e testes
-
-| Cenário | Teste | O que verifica |
-|---|---|---|
-| Lead com campanha e ponto de entrada, origem preservada até a venda | `test_c1_origem_campanha_preservada_ate_venda` | Origem `observada`/`ig`, fila `comercial-sp`. Depois da venda, oportunidade `ganha` e o primeiro toque ainda tem `utm_campaign`, `utm_id`, `utm_content`, `fbclid` e `lp-sp-micro-01`. Nenhum campo do toque contém `@`. O relatório atribui a venda a `observada:ig` |
-| QR de unidade e WhatsApp direto, registrados de forma distinta | `test_c2_qr_unidade_distinto_de_whatsapp_direto` | QR: `observada`/`qr_code`, unidade `cps`, produto `paciente_modelo`, fila `comercial-cps`. Direto: `desconhecida`, `source_channel` nulo, sem UTM, click id, anúncio ou ponto de entrada, fila `triagem-bot`, nenhum alerta |
-| Pessoa existente volta por outra campanha | `test_c3_pessoa_existente_nova_campanha` | Telefone em outro formato e outro nome no perfil caem na mesma pessoa. Segunda oportunidade (`harmonizacao`/`rj`, fila `comercial-rj`). Primeiro toque da primeira oportunidade inalterado. Terceiro contato do mesmo produto reusa a oportunidade e só muda o último toque |
-| O mesmo evento chega duas vezes | `test_c4_evento_duplicado_sem_efeito` | Reenvio de `form-1001` e `wamid.QR001` responde `duplicado` com o mesmo `event_id`. Contagem de 8 tabelas igual antes e depois. `duplicatas_recebidas = 2` |
-| Venda confirmada pelo ERP | `test_c5_venda_erp_atualiza_oportunidade` | Oportunidade `ganha`, venda listada nela, primeiro toque ainda é o evento do lead. Venda repetida não cria segunda linha. Oportunidade ganha não reabre: novo interesse vira oportunidade nova |
-| Falha escolhida | `test_falha_lp_sem_utm_detectada`, `test_lp_sem_utm_com_como_conheceu_nao_libera` | Ver seção abaixo |
-
-Testes de apoio:
-
-| Teste | O que verifica |
-|---|---|
-| `test_duplicado_payload_diferente_registra_conflito` | Mesmo `submission_id` com telefone diferente: `conflito`, recibo original intacto, nenhum toque ou identificador novo, issue `evento_conflitante` |
-| `test_venda_sem_oportunidade_quarentena` | Venda para a oportunidade 9999 e venda sem `crm_opportunity_id`: evento em `quarentena`, issue `venda_sem_oportunidade`, zero pessoa, toque, oportunidade ou venda |
-| `test_venda_divergente_quarentena` | Venda de `harmonizacao/rj` apontando para oportunidade de `micropigmentacao/sp`: quarentena, issue `venda_divergente`, oportunidade continua `aberta` |
-| `test_venda_em_quarentena_reprocessada` | Venda órfã reenviada com o id certo: o mesmo recibo troca de payload sem `evento_conflitante`, grava 1 venda, oportunidade `ganha`, recibo `processado`, issue `resolvida`, audit `venda.reprocessada` |
-| `test_recibo_imutavel` | `UPDATE` de `source`, `dedup_key`, `payload` ou `payload_hash` num recibo processado levanta `sqlite3.IntegrityError`. O contador de duplicatas pode mudar |
-| `test_relatorio_conta_leads_nao_mensagens` | Duas mensagens da mesma pessoa pelo mesmo anúncio contam 1 lead. Linha `(sem ponto de entrada)` com `status: null` |
-| `test_anuncio_fora_do_catalogo_vai_para_triagem` | Anúncio fora de `catalog.ads`: segue `observada`/`meta_ctwa` (o `ad_id` é evidência), oportunidade nova em `triagem-bot`, issue `anuncio_desconhecido` |
-| `test_click_id_da_url[gclid, gbraid, wbraid, fbclid]` | Cada click id da URL vira `observada` com o canal certo (`google` ou `meta`) e passa pelo `CHECK` do banco |
-| `test_liberacao_em_tres_estados` | LP com 1 de 2 leads com problema: `bloqueado`. QR com 1 lead sem problema: `amostra_insuficiente`. 30 leads sem problema em `/contato`: `liberado`. 50 leads com 2 problemas: `bloqueado` |
-| `test_receita_sem_origem` | Duas vendas de R$ 3.490: só a do lead sem UTM entra em `receita_sem_origem_cents` |
-| `test_venda_gera_conversao_para_plataforma` | Venda do lead com `fbclid` gera linha `meta` `pendente` com `event_id = ERP-2026-5001`. Venda de lead sem click id não gera nada |
-| `test_paciente_modelo_nunca_vai_para_plataforma` | Venda de `paciente_modelo` de lead que veio de anúncio: linha `bloqueado_sensivel` sem click id |
-| `test_whatsapp_texto_nao_gravado` | O recibo do WhatsApp guarda wamid, telefone, hora, referral e ponto de entrada, sem o texto. Dedup e conflito continuam pelo hash do payload original |
-| `test_consentimento_registrado_na_jornada` | Consentimento de marketing gravado a cada formulário que o traz, histórico na jornada, campo ausente não vira "não", tabela append-only |
-| `test_declarada_nao_vira_observada` | "Como conheceu: instagram" em `/contato` fica `declarada`, sem UTM, e conta como `declarada:instagram`, separada de qualquer canal observado |
-| `test_touchpoint_append_only` | `UPDATE` ou `DELETE` direto em `touchpoint` levanta `sqlite3.IntegrityError` |
-| `test_handoff_timeout_fica_incerto` | Timeout ao encaminhar deixa o handoff `incerto`, e a rodada seguinte não o reenvia |
-| `test_formulario_sem_identificador_rejeitado` | Formulário sem telefone nem e-mail válidos: 422 e nada gravado |
-| `test_identificadores_de_pessoas_diferentes_nao_fundem` | Telefone de uma pessoa com e-mail de outra: usa a do telefone, abre `identidade_conflitante`, não funde |
-| `test_mensagem_sem_produto_continua_oportunidade_aberta` | "obrigada!" depois do QR segue na oportunidade da CPS, sem criar oportunidade `a_definir` nem mandar para a triagem |
-| `test_id_inexistente_404_e_webhook_sem_mensagem_ignorado` | Id inexistente: 404. Webhook só com status de entrega: `ignorado` |
-| `tests/test_domain.py` | Telefones em 4 formatos viram o mesmo E.164, fixo não ganha nono dígito, e-mail, as classes de origem, parâmetros da URL, UTM fora da lista e UTM com `@` descartada, página fora do catálogo, código `[ep]` não cadastrado, e a tabela de tolerância conferida contra a binomial |
-
-## A falha escolhida: LP paga sem UTM
-
-O ponto de entrada `lp-sp-micro-01` está no catálogo com `exige_parametros: true`: todo lead ali deveria chegar com UTM ou click id. O lead `form-1003` chega sem nenhum, com referrer `bit.ly`. O link passou por um encurtador que descartou a query string.
-
-Como a demo trata:
-
-1. O lead é aceito e encaminhado (`comercial-sp`). Falha de rastreamento não pode custar o lead.
-2. A origem fica `desconhecida`. Não vira `ig` ou `meta` por ser a campanha ativa da LP nem por palpite sobre o referrer.
-3. Abre a issue `parametros_perdidos` com `{"referrer_host": "bit.ly"}`, sem dado pessoal, apontando onde procurar o link quebrado.
-4. `/quality/report` conta leads (primeiro toque de cada oportunidade). Lead com problema é o de origem `desconhecida` ou com issue aberta `parametros_perdidos` ou `utm_fora_do_padrao` no evento do primeiro toque. `lp-sp-micro-01` fica com `taxa_problema` 0,5 e `status: bloqueado`. Esse ponto de entrada não entra no primeiro fluxo do CRM até ser corrigido.
-
-   O estado sai de `domain.release_status` com a regra de `catalog.liberacao`. Com menos de `min_leads` (30) leads, taxa de problema acima de 5% já bloqueia; abaixo disso fica `amostra_insuficiente`, porque reprovar exige menos evidência que aprovar. Com 30 leads ou mais, libera se os problemas couberem na `tolerancia` da maior faixa alcançada (0 em 30, 1 em 50, 2 em 75, 4 em 100). Cada faixa garante cobertura real de pelo menos 90% com 95% de confiança (Clopper-Pearson unilateral), e um teste confere a tabela.
-5. "Como conheceu" preenchido não esconde a perda. A origem vira `declarada`, mas a issue abre do mesmo jeito e o ponto continua sem liberar (`test_lp_sem_utm_com_como_conheceu_nao_libera`).
-
-O WhatsApp direto sem código também é `desconhecida`, mas é esperado: entra na linha `(sem ponto de entrada)`, que não tem canal a liberar (`status: null`), e não gera alerta.
-
-## Saída esperada do demo
-
-`uv run python scripts/demo.py` (saída real, determinística):
+Linhas-chave do demo (saída completa e determinística em [`saida-esperada.txt`](saida-esperada.txt)):
 
 ```text
-[C1] form-1001 Ana, LP paga com UTM -> processado (origem observada/ig, fila comercial-sp, pessoas=1, toques=1)
-[C2] WhatsApp Bruna, QR da recepção CPS -> processado (origem observada/qr_code, fila comercial-cps, pessoas=2, toques=2)
-[C2] WhatsApp direto, sem código -> processado (origem desconhecida/-, fila triagem-bot, pessoas=3, toques=3)
-[C3] Ana volta por anúncio Click-to-WhatsApp RJ -> processado (origem observada/meta_ctwa, fila comercial-rj, pessoas=3, toques=4)
-[C3] Ana de novo pelo mesmo anúncio -> processado (origem observada/meta_ctwa, fila comercial-rj, pessoas=3, toques=5)
+[C1] form-1001 Ana, LP paga com UTM -> processado (origem observada:ig/paid_social, fila comercial-sp, pessoas=1, toques=1)
 [C4] reenvio form-1001 -> duplicado (pessoas=3, toques=5)
-[C4] reenvio wamid.QR001 -> duplicado (pessoas=3, toques=5)
+[C4] mensagem da Ana repassada pelo Chatwoot (segunda via) -> duplicado (pessoas=3, toques=5)
 [C5] ERP confirma ERP-2026-5001 da oportunidade da Ana -> processado (pessoas=3, toques=5)
-[FALHA] form-1003 Diego, LP paga sem UTM (veio de bit.ly) -> processado (origem desconhecida/-, fila comercial-sp, pessoas=4, toques=6)
-[DECLARADA] form-1004 Carla, /contato com 'como conheceu' -> processado (origem declarada/-, fila comercial-rj, pessoas=5, toques=7)
-[ORFA] ERP-2026-5002 para oportunidade 9999 -> quarentena (motivo venda_sem_oportunidade, pessoas=5, toques=7)
-[ORFA] ERP reenvia ERP-2026-5002 com a oportunidade do Diego -> processado (pessoas=5, toques=7)
-[DIVERGENTE] ERP-2026-5003 harmonizacao/rj na oportunidade da Bruna (paciente_modelo/cps) -> quarentena (motivo venda_divergente, pessoas=5, toques=7)
-
-Jornada da Ana (GET /people/1/journey, campos nulos omitidos):
-{
-  "person_id": 1,
-  "nome": "Ana Souza",
-  "oportunidades": [
-    {
-      "id": 1,
-      "product": "micropigmentacao",
-      "unit": "sp",
-      "status": "ganha"
-    },
-    {
-      "id": 4,
-      "product": "harmonizacao",
-      "unit": "rj",
-      "status": "aberta"
-    }
-  ],
-  "toques": [
-    {
-      "id": 1,
-      "person_id": 1,
-      "opportunity_id": 1,
-      "event_id": 1,
-      "occurred_at": "2026-10-20T17:03:00+00:00",
-      "contact_channel": "form",
-      "origin_type": "observada",
-      "source_channel": "ig",
-      "utm_source": "ig",
-      "utm_medium": "paid_social",
-      "utm_campaign": "sp-micropigmentacao-captacao",
-      "utm_id": "120200000000099",
-      "utm_content": "video-01",
-      "click_id_type": "fbclid",
-      "click_id": "IwAR0abc",
-      "entry_point": "lp-sp-micro-01",
-      "unit": "sp",
-      "product": "micropigmentacao"
-    },
-    {
-      "id": 4,
-      "person_id": 1,
-      "opportunity_id": 4,
-      "event_id": 4,
-      "occurred_at": "2026-10-22T12:00:00+00:00",
-      "contact_channel": "whatsapp",
-      "origin_type": "observada",
-      "source_channel": "meta_ctwa",
-      "utm_campaign": "rj-harmonizacao-captacao",
-      "click_id_type": "ctwa_clid",
-      "click_id": "ARAkLk9",
-      "ad_id": "120210000000001",
-      "unit": "rj",
-      "product": "harmonizacao"
-    },
-    {
-      "id": 5,
-      "person_id": 1,
-      "opportunity_id": 4,
-      "event_id": 5,
-      "occurred_at": "2026-10-23T12:00:00+00:00",
-      "contact_channel": "whatsapp",
-      "origin_type": "observada",
-      "source_channel": "meta_ctwa",
-      "utm_campaign": "rj-harmonizacao-captacao",
-      "click_id_type": "ctwa_clid",
-      "click_id": "ARAkLk9b",
-      "ad_id": "120210000000001",
-      "unit": "rj",
-      "product": "harmonizacao"
-    }
-  ],
-  "consentimentos": [
-    {
-      "purpose": "marketing",
-      "granted": true,
-      "at": "2026-10-20T17:03:00+00:00",
-      "event_id": 1
-    }
-  ]
-}
-
-Relatório de qualidade (GET /quality/report):
-{
-  "origem_por_canal": {
-    "declarada:instagram": 1,
-    "desconhecida": 2,
-    "observada:ig": 1,
-    "observada:meta_ctwa": 1,
-    "observada:qr_code": 1
-  },
-  "pontos_de_entrada": [
-    {
-      "entry_point": "(sem ponto de entrada)",
-      "total": 2,
-      "desconhecida": 1,
-      "com_problema": 1,
-      "taxa_problema": 0.5,
-      "status": null
-    },
-    {
-      "entry_point": "lp-sp-micro-01",
-      "total": 2,
-      "desconhecida": 1,
-      "com_problema": 1,
-      "taxa_problema": 0.5,
+[C5] oportunidade 1 ganha com ERP-2026-5001; origem atribuída observada:ig/paid_social, sp-micropigmentacao-captacao, lp-sp-micro-01
+[FALHA] form-1003 Diego, LP paga sem UTM (link do anúncio sem parâmetros) -> processado (origem desconhecida, fila comercial-sp, pessoas=4, toques=6)
       "status": "bloqueado"
-    },
-    {
-      "entry_point": "qr-cps-recepcao-01",
-      "total": 1,
-      "desconhecida": 0,
-      "com_problema": 0,
-      "taxa_problema": 0.0,
-      "status": "amostra_insuficiente"
-    },
-    {
-      "entry_point": "site-online-contato-01",
-      "total": 1,
-      "desconhecida": 0,
-      "com_problema": 0,
-      "taxa_problema": 0.0,
-      "status": "amostra_insuficiente"
-    }
-  ],
-  "issues_abertas": {
-    "parametros_perdidos": 1,
-    "venda_divergente": 1
-  },
-  "eventos": {
-    "processado": 9,
-    "quarentena": 1,
-    "duplicatas_recebidas": 3
-  },
-  "vendas": {
-    "total": 2,
-    "valor_cents": 698000,
-    "por_origem_primeiro_toque": {
-      "desconhecida": 1,
-      "observada:ig": 1
-    }
-  },
-  "receita_sem_origem_cents": 349000
-}
-
-Encaminhamento (db.dispatch_handoffs, atendimento simulado):
-[ENCAMINHAMENTO] oportunidade 1 -> comercial-sp
-[ENCAMINHAMENTO] oportunidade 2 -> comercial-cps
-[ENCAMINHAMENTO] oportunidade 3 -> triagem-bot
-[ENCAMINHAMENTO] oportunidade 4 -> comercial-rj
-[ENCAMINHAMENTO] oportunidade 5 -> comercial-sp
-[ENCAMINHAMENTO] oportunidade 6 -> comercial-rj
-
-Outbox de conversões para as plataformas (não envia nada):
+  "receita_sem_origem_cents": 349000,
 [CONVERSAO] ERP-2026-5001 -> meta pendente (fbclid=IwAR0abc, event_id=ERP-2026-5001)
 ```
 
-## Como a convenção vive em `data/catalog.json`
+C1 a C5 são os cenários do enunciado (C2 e C3 na saída completa); FALHA é a falha escolhida, e `lp-sp-micro-01` é o único ponto `bloqueado`. A receita sem origem é a venda do Diego (R$ 3.490); a em quarentena (R$ 4.200) fica à parte. A conversão da Ana sai `pendente` com a LP bloqueada: é do lead, que tem UTM completa, não do ponto.
 
-- `units` e `products`: valores aceitos. Valor fora da lista no formulário não é inventado nem rejeita o lead: cai no do ponto de entrada ou fica desconhecido (`a_definir`, `desconhecida`).
-- `utm_sources` (`google`, `fb`, `ig`, `msg`, `an`, `youtube`, `rd_email`, `hotmart`, `offline`, `indicacao`) e `utm_mediums` (`cpc`, `paid_social`, `organic_social`, `organic`, `email`, `qr`, `wa_link`, `referral`): listas fechadas. `fb`, `ig`, `msg` e `an` são os valores que o parâmetro dinâmico `{{site_source_name}}` da Meta preenche. Valor fora da lista fica gravado como veio (o toque continua `observada`) e abre `utm_fora_do_padrao`. Qualquer `utm_*` com `@` é descartado antes de gravar e também abre `utm_fora_do_padrao`.
-- `utm_campaign` segue `{unidade}-{produto}-{objetivo}`, sem data, com objetivo `captacao`, `paciente` ou `marca` (por exemplo `sp-micropigmentacao-captacao`). `utm_id` leva o id da campanha na plataforma e fica no toque. `utm_content` identifica o criativo (`video-01`). A demo não valida o formato de `utm_campaign`.
-- `products[].sensivel`: `paciente_modelo` é `true`, então a venda dele nunca vira conversão enviada a plataforma de anúncio.
-- `entry_points`: chave no padrão `{tipo}-{unidade}-{local}-{nn}` (`lp-sp-micro-01`, `site-online-contato-01`, `qr-cps-recepcao-01`), com caminho da página, unidade, produto, `exige_parametros` e dono. Formulário de página fora do catálogo abre `ep_desconhecido` com o caminho.
-- QR: leva ao `wa.me` com texto pré-preenchido contendo `[qr-cps-recepcao-01]`. O código é procurado no texto (regex sem diferenciar maiúsculas) e conferido no catálogo. Código não cadastrado não vira origem e abre `ep_desconhecido`. Se a pessoa apagar o código, o contato fica `desconhecida`.
-- `ads`: `source_id` do anúncio Click-to-WhatsApp para campanha, unidade e produto. Anúncio fora da lista abre `anuncio_desconhecido`.
-- `liberacao`: `max_taxa_problema` (0,05), `min_leads` (30) e `tolerancia` (pares leads, problemas tolerados), usados em `pontos_de_entrada[].status`.
-- Fila: `comercial-{unidade}` quando a unidade é conhecida, `triagem-bot` quando não é.
+## Leia em 5 minutos
+
+O coração da fatia são cinco funções; o resto é tratamento de borda (entrada ruim, concorrência, reenvio):
+
+- `domain.classify`: observada, declarada ou desconhecida, só pela evidência do próprio evento.
+- `db.receive`: recibo idempotente (`ON CONFLICT DO NOTHING`), na mesma transação dos efeitos.
+- `db.attributed_touch`: o toque que leva a origem, o primeiro observado.
+- `db.record_sale`: liga a venda pela oportunidade, ou a estaciona na quarentena.
+- `domain.release_status`: libera ou bloqueia cada ponto de entrada.
+
+## Explorar
+
+```bash
+uv run fastapi dev app/main.py   # http://127.0.0.1:8000/docs; banco em demo.db ou em CLINIC_DB
+```
+
+`app/schema.sql` (tabelas, `CHECK`s, triggers), `app/domain.py` (regras puras), `app/db.py` (todo o SQL), `app/main.py` (rotas e leitura tolerante). Convenção (UTMs, pontos de entrada, anúncios, robôs de prévia, liberação) em `data/catalog.json`; payloads fictícios em `data/eventos.json`.
+
+## Cenários do enunciado → testes
+
+| Cenário | Teste | O que verifica |
+|---|---|---|
+| C1. Lead com campanha, origem preservada até a venda | `test_c1_origem_campanha_preservada_ate_venda` | `observada`/`ig/paid_social`, `comercial-sp`; depois da venda o 1º toque mantém campanha, criativo, `fbclid` e ponto, sem `@` |
+| C2. QR de unidade × WhatsApp direto | `test_c2_qr_unidade_distinto_de_whatsapp_direto` | QR: `observada`/`offline/qr`, fila `agenda-cps` (paciente modelo). Direto: `desconhecida`, sem canal, `triagem-bot`, sem alerta |
+| C3. Pessoa existente, nova campanha | `test_c3_pessoa_existente_nova_campanha` | Mesmo telefone em outro formato e outro nome, mesma pessoa; oportunidade nova `harmonizacao/rj`; 1º toque da antiga intacto |
+| C4. Evento duplicado | `test_c4_evento_duplicado_sem_efeito` | `duplicado` com o mesmo `event_id`; 8 tabelas iguais |
+| C5. Venda confirmada pelo ERP | `test_c5_venda_erp_atualiza_oportunidade` | `ganha`, venda ligada, 1º toque preservado; não reabre |
+| Falha escolhida | `test_falha_lp_sem_utm_detectada`, `test_lp_sem_utm_com_como_conheceu_nao_libera` | Ver a seção abaixo |
+| Mensagem pelo Chatwoot | `test_chatwoot_com_referral_herda_o_anuncio`, `test_mesma_mensagem_pela_meta_e_pelo_chatwoot_e_duplicado`, `test_chatwoot_so_mensagem_recebida_vira_contato` | Herda o anúncio; a mesma mensagem pelas duas rotas é `duplicado`; `outgoing` é `ignorado` |
+| Clique do QR/LP que se perde no WhatsApp | `test_q_mensagem_com_protocolo_herda_a_campanha`, `test_q_protocolo_vencido_ou_inexistente`, `test_q_protocolo_reutilizado_por_outra_pessoa`, `test_q_protocolo_vence_referral_de_post`, `test_q_taxa_de_chegada`, `test_q_chegada_baixa`, `test_q_head_e_previa_de_link_nao_gravam_leitura`, `test_q_nao_repassa_dado_pessoal` | Protocolo herda UTM e ponto; vencido ou usado por outra pessoa abre `protocolo_invalido`; 20 leituras com chegada abaixo de 60% abrem alerta; `HEAD` e robô de prévia não contam; só utm_* e click id seguem |
+| Atendimento → CRM | `test_etiqueta_do_atendimento_muda_o_estagio`, `test_etiqueta_com_duas_abertas_exige_a_oportunidade`, `test_etiqueta_gravada_pelo_nucleo_e_eco` | `em_negociacao` grava `stage`, `perdida` fecha; duas abertas sem id dão `etiqueta_ambigua`; eco ignorado |
+
+Os demais testes têm nomes que dizem o que verificam (`uv run pytest -v`), por tema: recibo e idempotência; entrada ruim que não perde lead (`test_telefone_numerico_no_formulario`); identidade e oportunidade (`test_anuncio_fora_do_catalogo_entra_na_oportunidade_aberta`); origem e atribuição (`test_atribuicao_pelo_primeiro_toque_observado`, `test_oi_no_whatsapp_direto_nao_rouba_a_origem`); venda e quarentena; relatório e liberação; conversões (`test_venda_gera_conversao_para_plataforma`); concorrência, outbox e auditoria. Em `tests/test_domain.py`: normalização, origem, formato de `utm_campaign`, precedência da conversão e a tolerância contra a binomial.
+
+Mutações conferidas, cada uma derruba teste: sem `ON CONFLICT` no recibo, sem `db.LOCK` na escrita ou na leitura, sem a posse `enviando` da outbox, `ORDER BY` de `db.attributed_touch` invertido ou sem a prioridade do toque observado.
+
+## A falha escolhida: LP paga sem UTM
+
+`lp-sp-micro-01` tem `exige_parametros: true`. O `form-1003` chega sem UTM nem click id, com referrer `l.instagram.com`: o link do anúncio foi cadastrado sem parâmetros.
+
+1. O lead é aceito e encaminhado: falha de rastreamento não custa o lead.
+2. A origem fica `desconhecida`, não `ig`: referrer de app pode ser anúncio.
+3. Abre `parametros_perdidos` com `{"referrer_host": "l.instagram.com"}`, sem dado pessoal.
+4. No `/quality/report` a LP fica `bloqueado`, e o CAC dela espera o link ser corrigido. Lead com problema é o `desconhecida` ou com `parametros_perdidos` ou `utm_fora_do_padrao` aberta (inclui `utm_campaign` fora de `{unidade}-{produto}-{objetivo}[-livre]`).
+5. "Como conheceu" preenchido não esconde a perda: vira `declarada`, mas a pendência abre.
+6. Sem referrer (retorno direto, favorito), a pendência é `retorno_sem_parametro`: conta contra a cobertura do mesmo jeito, mas o remédio é guardar o clique entre visitas, não corrigir o link.
+
+`domain.release_status` refaz em ordem os leads do ponto, sem estado guardado: abaixo de 30, taxa acima de 5% bloqueia; com 30 ou mais, bloqueia acima da tolerância (0 em 30, 1 em 50, 2 em 75, 4 em 100) e só libera com 7 dias de observação. Liberado só volta a bloquear com 7 problemas em 50 ou 5 seguidos (ver o anexo).
 
 ## Decisões
 
-- **Primeiro e último toque não são colunas.** Saem de `touchpoint` (append-only) por `ORDER BY occurred_at, id`. A atribuição da venda e o relatório usam um lugar só: `db.attributed_touch`.
-- **`inferida` sem regra ativa.** O schema aceita o valor, mas nenhuma regra o produz. Inferência sem método validado seria origem inventada com outro nome.
-- **Origem só com evidência no evento.** `observada` exige UTM, click id (`gclid`, `gbraid`, `wbraid`, `fbclid`, `ctwa_clid`), `referral` de anúncio ou código QR cadastrado. `declarada` é só "como conheceu". O resto é `desconhecida`, com `source_channel` nulo (o schema impede outro valor). `fbclid` indica Meta, não prova mídia paga.
-- **Venda na dúvida vai para quarentena.** Sem `crm_opportunity_id`, com id inexistente ou com produto/unidade diferentes da oportunidade: o evento fica em `quarentena`, abre `venda_sem_oportunidade` ou `venda_divergente`, e nada é aplicado. Melhor uma venda parada do que fechar a oportunidade errada.
-- **Reprocessamento pelo reenvio.** Reenvio do mesmo `erp_sale_id` com o recibo em quarentena troca o payload e processa de novo, sem `evento_conflitante`, porque nada tinha sido aplicado. Se ligar, a issue fecha e o audit registra `venda.reprocessada`.
-- **Recibo imutável.** Um trigger barra mudança de `source` e `dedup_key` sempre, e de `payload`/`payload_hash` fora da quarentena. Exclusão LGPD seria a exceção, feita por rotina própria e registrada em `audit_log`.
-- **Duplicado e conflito respondem 200.** O remetente (Meta, ERP) para de reenviar. O conflito fica como issue para alguém olhar. Payload inválido responde 422, id inexistente 404.
-- **Recibo e efeitos numa transação.** `INSERT ... ON CONFLICT (source, dedup_key) DO NOTHING RETURNING id`: se não volta linha, é repetição; mesmo hash é `duplicado`, hash diferente é `conflito`.
-- **Relatório conta leads, não mensagens.** Origem por canal e pontos de entrada usam o primeiro toque de cada oportunidade.
-- **Liberação em três estados.** `bloqueado`, `amostra_insuficiente` ou `liberado`, pela regra descrita na seção da falha. Amostra pequena nunca libera.
-- **Receita sem origem fica à parte.** `receita_sem_origem_cents` soma as vendas cujo primeiro toque não é `observada`. Esse valor não é redistribuído entre canais.
-- **Conversão volta para a plataforma por outbox.** Ao ligar uma venda (inclusive reprocessada), o primeiro toque com click id da oportunidade gera uma linha em `platform_conversion`: `gclid`, `gbraid` e `wbraid` vão para `google`, `fbclid` e `ctwa_clid` para `meta`, com `event_id = erp_sale_id` para a plataforma deduplicar. Produto `sensivel` grava `bloqueado_sensivel` sem copiar o click id. Sem click id, nada. A demo não envia nada.
-- **Identidade só por identificador.** Telefone em E.164 e e-mail em minúsculas, nunca nome. Telefone e e-mail de pessoas diferentes: usa a do telefone, abre `identidade_conflitante`, não funde.
-- **Mensagem de continuação não é interesse novo.** Mensagem sem evidência de origem, sem produto e sem unidade, de quem já tem oportunidade aberta, segue nessa oportunidade. Com evidência (anúncio, código QR), abre ou reusa a oportunidade da chave dela.
-- **Consentimento é histórico.** Cada formulário que traz `consent_marketing` grava uma linha append-only em `consent`. O vigente é o mais recente. Campo ausente não grava nada.
-- **Dado pessoal fica fora do toque.** O toque guarda só `utm_*` e click ids. Nome, telefone e e-mail ficam em `person`, `person_identifier` e no payload do formulário em `inbound_event`.
-- **Recibo do WhatsApp sem o texto.** `inbound_event.payload` guarda wamid, telefone, hora, `referral` e o ponto de entrada extraído. O `payload_hash` é do payload original, então dedup e conflito não mudam.
-- **Encaminhamento como outbox.** O handoff é gravado na mesma transação da oportunidade. `db.dispatch_handoffs(send)` entrega depois (a demo imprime cada entrega). Timeout vira `incerto` e não é reenviado às cegas: o atendimento pode ter recebido, e alguém confere.
-- **Triagem por IA é simulada.** `triagem-bot` é só a fila. O bot perguntaria produto, unidade e "como conheceu", e a resposta voltaria como toque `declarada`.
+- **Origem só com evidência no evento.** `observada` exige UTM completa, click id, `referral`, protocolo do `/q/`, QR ou referrer de buscador; `declarada` é só "como conheceu"; o resto é `desconhecida`.
+- **Atribuição pelo primeiro toque observado** (`db.attributed_touch`); sem nenhum, o primeiro toque. Um "oi" no WhatsApp direto antes do formulário pago não leva a origem.
+- **Protocolo do `/q/`.** A leitura grava UTMs e click id numa `click_session` e leva "protocolo XXXXX" ao WhatsApp; a mensagem com protocolo de até 7 dias herda a origem, se ninguém de outro telefone já o usou; a leitura do protocolo e a gravação do toque ficam sob a mesma trava. O redirecionamento só repassa utm_* e click id; `HEAD` e robô de prévia não são leitura.
+- **Identidade só por identificador** (E.164, BSUID do WhatsApp para quem chega sem telefone, e-mail minúsculo); conflito abre `identidade_conflitante` sem fundir.
+- **Lead de teste tem oportunidade própria** (`opportunity.is_test`) e vai à fila `teste`: o lead real do mesmo telefone nunca cai nela.
+- **Campo que o toque não sabe não rebaixa o que a oportunidade sabe**: o formulário do `/contato` com produto e sem unidade entra na aberta de SP, sem outra fila em paralelo.
+- **Mensagem sem produto nem unidade** (um "obrigada", anúncio fora do catálogo) entra na oportunidade aberta mais recente.
+- **Nenhum lead rejeitado**: só a falta da chave de idempotência dá 422; no lote do WhatsApp, a mensagem sem `id` vira pendência e o resto segue (um 422 faria a Meta reenviar o lote para sempre).
+- **Recibo e efeitos numa transação** (`ON CONFLICT DO NOTHING`); hash diferente é `conflito`; recibo imutável por trigger.
+- **Venda na dúvida vai para quarentena**, sem aplicar nada.
+- **Conversão é do lead, não do ponto**, por outbox, com o click id mais recente de cada plataforma. Precedência: `sensivel`, sem `consent_ads`, vencido e `pendente`. Quem casa o clique com o anúncio é a plataforma: um `fbclid` sozinho não prova a campanha para a nossa atribuição, mas sai como sinal para a Meta. A Meta só aceita o evento até 7 dias depois da venda: esperar o ponto liberar perderia as vendas do piloto.
+- **Atendimento → CRM por etiqueta**, com o id da oportunidade (o telefone só é exigido sem ele); eco do núcleo é ignorado.
+- **Paciente modelo é outro funil**: fila `agenda-{unidade}`, conversão bloqueada (produto sensível) e contagem à parte no relatório (`paciente_modelo`), fora da origem e da receita de curso.
+- **Só ponto liberado entra no custo por canal**: o relatório separa `valor_em_pontos_liberados_cents` do total. Automação não existe na demo; a trava dela por ponto é desenho.
+- **Encaminhamento por outbox**; timeout vira `incerto`, sem reenvio às cegas.
+
+O porquê das decisões de borda está no comentário do código.
 
 ## O que é só desenho (não está na demo)
 
-- `recorded_by` na origem declarada (quem registrou: formulário, atendente, bot).
-- `merged_into` para fusão de pessoas reversível. Na demo, conflito de identidade só abre issue.
-- `origin_system` para evitar loop na sincronização bidirecional entre CRM, atendimento e ERP.
-- `is_test` para os leads sintéticos de teste ponta a ponta.
-- Redirecionador `/q/<ep>` para QR e links, com log de leituras e um protocolo de sessão curto que liga o clique (UTMs e click ids) à conversa do WhatsApp. Na demo o QR já chega como código no texto da mensagem.
-- Leitura das mensagens do Chatwoot pela API a cada 15 minutos, como segunda via caso o webhook falhe.
-- Feed de vendas do ERP lido por cursor, em vez de depender só do webhook.
-- "Verba segue a vaga": usar as vagas abertas por turma no ERP para decidir onde pôr verba.
-- Envio real das conversões às APIs do Google e da Meta. A demo só grava a outbox.
-- Flag `channel_validated` por canal. O `status` do relatório é o cálculo que a alimentaria.
-- Cookie primário e campos ocultos no formulário para levar os parâmetros entre páginas. Na demo, a `page_url` do envio faz esse papel.
-- Classificação de busca orgânica pelo referrer.
+- Fusão reversível de pessoas; identidade pelo id do ERP e papéis (aluna, paciente, lead); feed de vendas do ERP por cursor, cancelamento e estorno; botão "matricular" no Chatwoot.
+- Envio real das conversões e do lead qualificado (etiqueta) às plataformas.
+- Alertas de volume zerado, desconhecida acima do limite e quarentena: na demo, só a chegada baixa do `/q/` e o status de cada ponto no relatório.
+- Cookie primário para levar os parâmetros entre páginas; liberação de pontos de baixo volume por família.
+- Formulários instantâneos da Meta; expiração de oportunidade por rotina diária.
 
 ## Limitações
 
-Atalhos marcados no código com `# shortcut:`:
+Marcadas com `# shortcut:` no código: SQLite serializado por `db.LOCK`; sem `X-Hub-Signature-256` nem remetente conferido no Chatwoot; robô de prévia só pelo User-Agent; do atendimento só volta a etiqueta; no formulário, só telefone do Brasil; toda mensagem de WhatsApp vira toque; sem a retenção de 30 dias do payload do formulário.
 
-- Uma conexão SQLite compartilhada entre threads (`check_same_thread=False`), sem lock. Requisições simultâneas podem se misturar.
-- Uma mensagem por webhook do WhatsApp. Lote responde 422 e a Meta reenvia.
-- Sem conferência da assinatura `X-Hub-Signature-256` e sem o handshake GET de verificação da Meta.
-- Sem sincronização atendimento → CRM: o status da conversa não volta.
-- Só telefones do Brasil. Número estrangeiro de 10 ou 11 dígitos seria lido como DDD.
-- Toda mensagem de WhatsApp vira toque, inclusive as de conversa já aberta. Isso pesa se a atribuição mudar para último toque.
-- O estado de liberação conta leads, mas não o período de observação de 14 dias do checklist.
-- O payload do formulário (com dado pessoal) deveria expirar em 30 dias. A retenção não está implementada.
-
-Outras, sem marcação no código:
-
-- As rotas não têm autenticação nem permissão por papel. Os GET usam ids sequenciais, então qualquer um que alcance a API consegue listar nomes.
-- `inbound_event.payload` do formulário guarda a URL completa e os dados pessoais até a retenção de 30 dias existir.
-- A demo não valida o formato de `utm_campaign` nem o objetivo dentro dela.
-- `paciente_modelo` está modelado como produto. Na prática é uma oportunidade de atendimento (a pessoa é atendida numa aula), não a venda de um curso.
-- Venda em quarentena só é reprocessada quando o ERP reenvia. Não há rotina que tente de novo quando a oportunidade aparece.
-- `duplicatas_recebidas` conta todo reenvio com chave repetida, inclusive o reenvio que reprocessou uma venda da quarentena.
-- Importar `app.main` abre `demo.db` (é o app do `fastapi dev`), então rodar os testes cria um `demo.db` vazio na raiz. Está no `.gitignore`.
-
-## Mudanças de requisito que já são baratas
-
-- **Nova unidade ou novo QR:** só `data/catalog.json` (`units` ou `entry_points`). A fila `comercial-{unidade}` sai sozinha.
-- **Atribuição por último toque:** trocar o `ORDER BY` de `db.attributed_touch` para `DESC`. Relatório e atribuição de venda mudam juntos.
-- **Exclusão LGPD:** cerca de 10 linhas: apagar `person_identifier` e `consent` da pessoa, zerar `person.name` e o `payload` dos eventos dela, gravar em `audit_log`. Exige a exceção no trigger do recibo, que hoje barra a troca de payload. `touchpoint` fica, porque não tem dado pessoal. O hash do recibo continua barrando reenvio.
-- **ERP sem `crm_opportunity_id`:** hoje vai para quarentena. O fallback seria buscar por identificador + produto quando houver exatamente uma oportunidade aberta candidata, gravando como a ligação foi feita. Mais de uma candidata continua na quarentena.
+Sem marcação: sem autenticação (ids sequenciais); formato de `utm_campaign` conferido só no formulário, não no `/q/`; evento sem data legível usa a hora de recebimento; quarentena só é reprocessada no reenvio; evento em conflito guarda só o hash do conteúdo novo (o conteúdo se pede ao remetente); a atribuição é calculada na leitura, então um toque importado depois com data antiga pode mudar a origem de uma venda (em produção, gravar o toque atribuído na venda); venda em oportunidade de teste é aceita sem pendência; o alerta de chegada baixa conta leitura de robô que se passa por navegador (por isso não bloqueia sozinho); `enviando` de processo que caiu fica parado até alguém conferir.
 
 ## Uso de IA
 
-Código gerado com Claude (Claude Code, Opus 5.5) a partir de plano revisado pelo candidato. Testes executados localmente.
+Gerei o código com o Claude Code (modelo Claude Opus 5.5) a partir de um plano que eu aprovei; os testes rodam localmente. O que eu revisei e o que a IA fez estão no REGISTRO.
+
+## Anexo: estatística da liberação
+
+Cada checagem pergunta se dá para afirmar que o ponto rastreia pelo menos 90% dos leads. Se a cobertura real fosse só 90%, ver tão poucos problemas teria chance de 4,2% (0 em 30), 3,4% (1 em 50), 1,6% (2 em 75) e 2,4% (4 em 100): abaixo de 5%, logo 95% de confiança (binomial, Clopper-Pearson unilateral). Um problema a mais passa de 5%, por isso cada faixa é o máximo; `test_tabela_de_tolerancia_garante_cobertura_de_90` refaz a conta.
+
+**Margem de rebloqueio.** Com a mesma tabela, o ponto saudável oscilaria: com 5% de problemas reais, 2 ou mais em 50 acontecem 72% das vezes. Já 7 em 50 nesse ponto é 1,2%; com 10% de problemas, 23% das janelas; com 20%, 90%. Os 5 seguidos pegam a quebra brusca (link trocado sem parâmetros) sem esperar a janela.
+
+**Custo da regra.** A janela conta os problemas anteriores: um problema seguido de 30 leads limpos ainda bloqueia até perto de 50. Um ponto com 95% de cobertura real passa ~44% das vezes com 100 leads; com 97%, 82%. Por isso pontos pequenos liberam em grupo e o ponto ruim se corrige, não se espera.
+
+**Confiança por checagem.** A regra é recalculada a cada lead, então os 95% valem por checagem, não para a sequência: um ponto com 90% de cobertura tem muitas chances de passar uma vez por sorte. A margem compensa: o liberado segue vigiado, e o de 90% bate 7 em 50 em quase uma janela a cada quatro e volta a bloquear, enquanto o saudável não bloqueia por ruído.

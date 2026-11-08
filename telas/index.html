@@ -1,0 +1,573 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0f1b26">
+<title>Clinic Cursos · telas do fluxo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<style>
+:root{--bg:#eef1f5;--card:#fff;--ink:#16202b;--muted:#556372;--line:#dde3ea;--brand:#0b5d6b;--brand-h:#084854;--brand2:#0e7c8d;--focus:#0ea5b7;
+--obs:#166534;--obs-bg:#dcfce7;--dec:#92400e;--dec-bg:#fef3c7;--unk:#3f4b5b;--unk-bg:#e2e8f0;--bad:#b91c1c;--bad-bg:#fee2e2;--info:#075985;--info-bg:#e0f2fe;--chat:#0f766e}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{font-family:Inter,'DejaVu Sans',sans-serif;background:var(--bg);color:var(--ink);display:flex;flex-direction:column;min-height:100vh;font-size:15px;-webkit-font-smoothing:antialiased}
+h1,h2,h3{text-wrap:balance}
+p{text-wrap:pretty}
+button,a,input,select,label{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+button{font:inherit;cursor:pointer;color:inherit}
+input,select{font:inherit;color:var(--ink)}
+select{background-color:#fff}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.mono{font-family:'JetBrains Mono','DejaVu Sans Mono',monospace}
+.num,td,.kpi b,#log .h{font-variant-numeric:tabular-nums}
+.skip{position:absolute;left:-9999px;top:8px;background:#fff;color:var(--ink);padding:8px 14px;border-radius:8px;z-index:100}
+.skip:focus{left:12px}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+header{background:#0f1b26;color:#e8eef3;display:flex;align-items:center;gap:18px;padding:0 24px;height:60px;flex:none}
+.logo{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#14b8a6,#0b5d6b);display:grid;place-items:center;font-weight:700;color:#fff}
+header h1{font-size:18px;margin:0;font-weight:600}
+header h1 span{color:#93a7b6;font-weight:400}
+nav{display:flex;gap:4px;margin-left:24px}
+nav button{background:none;border:0;color:#a6b7c5;padding:8px 14px;border-radius:8px;font-size:14px;transition:background-color .15s,color .15s}
+nav button:hover{background:#18293a;color:#fff}
+nav button[aria-current="page"]{background:#24394b;color:#fff;box-shadow:inset 0 -2px 0 #2dd4bf}
+.badge{margin-left:auto;font-size:13px;color:#d3ecef;border:1px solid #2b5562;background:#12303a;padding:6px 12px;border-radius:999px}
+#cap{background:#fff;border-bottom:1px solid var(--line);padding:12px 24px;display:flex;gap:16px;align-items:center;min-height:76px;flex:none}
+#cap .n{width:42px;height:42px;border-radius:50%;background:var(--brand);color:#fff;display:grid;place-items:center;font-weight:700;font-size:18px;flex:none}
+#cap h2{margin:0;font-size:21px;letter-spacing:-.01em}
+#cap p{margin:3px 0 0;color:var(--muted);font-size:15.5px}
+main{flex:1;position:relative;overflow:hidden;padding:18px 24px;min-height:0}
+.screen{display:none;height:100%;gap:22px}
+.screen.on{display:flex}
+footer{flex:none;background:#0f1b26;color:#cbd5df;padding:10px 24px 12px;height:150px;overflow:hidden}
+footer .t{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#8aa0b1;margin-bottom:6px}
+#log div{font-family:'JetBrains Mono','DejaVu Sans Mono',monospace;font-size:14px;line-height:1.55;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#log .h{color:#8aa0b1}#log .ok{color:#4ade80}#log .warn{color:#fbbf24}#log .err{color:#f87171}#log .vazio{color:#8aa0b1}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;min-width:0}
+.t3{margin:0 0 10px;font-size:15px;font-weight:600}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:13px;font-weight:600;white-space:nowrap}
+.observada,.liberado,.ganha,.processado{background:var(--obs-bg);color:var(--obs)}
+.declarada{background:var(--dec-bg);color:var(--dec)}
+.desconhecida{background:var(--unk-bg);color:var(--unk)}
+.bloqueado,.quarentena{background:var(--bad-bg);color:var(--bad)}
+.amostra_insuficiente,.aberta,.em_negociacao{background:var(--info-bg);color:var(--info)}
+.duplicado,.ignorado{background:#ede9fe;color:#5b21b6}
+.k{color:var(--muted);font-size:13px}
+.btn{background:var(--brand);color:#fff;border:0;border-radius:10px;padding:12px 18px;font-weight:600;font-size:16px;transition:background-color .15s,box-shadow .15s}
+.btn:hover{background:var(--brand-h)}
+.btn:active{box-shadow:inset 0 2px 4px #0004}
+.btn:disabled{opacity:.8;cursor:progress}
+.btn.alt{background:#fff;color:var(--brand);border:1.5px solid var(--brand)}
+.btn.alt:hover{background:#e9f5f6}
+.spin{width:14px;height:14px;border:2px solid #fff8;border-top-color:#fff;border-radius:50%;display:inline-block;animation:spin .8s linear infinite;vertical-align:-2px;margin-right:8px}
+.btn.alt .spin{border-color:#0b5d6b44;border-top-color:var(--brand)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.result{border-left:4px solid var(--brand);background:#f5fafb;border-radius:10px;padding:12px 14px;font-size:15px;line-height:1.6}
+.result .k{display:block;margin-bottom:2px}
+.vazio{color:var(--muted);font-size:14px}
+/* celular */
+.phone{width:330px;height:660px;border-radius:44px;background:#0b0f14;padding:12px;box-shadow:0 20px 40px #0f1b2633;flex:none;position:relative}
+.phone .scr{width:100%;height:100%;border-radius:34px;overflow:hidden;background:#fff;display:flex;flex-direction:column;position:relative}
+.owner{font-size:14px;color:var(--muted);text-align:center;margin:0 0 8px;font-weight:500}
+.sbar{height:28px;display:flex;justify-content:space-between;padding:6px 22px 0;font-size:12px;font-weight:600}
+.feed .post-h{display:flex;align-items:center;gap:10px;padding:10px 14px}
+.av{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#14b8a6,#0b5d6b);flex:none}
+.creative{height:330px;background:linear-gradient(160deg,#0b5d6b,#14b8a6 60%,#f0abfc);color:#fff;padding:26px;display:flex;flex-direction:column;justify-content:flex-end}
+.creative b{font-size:26px;line-height:1.15;text-wrap:balance}
+.cta{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid var(--line);font-weight:600;color:var(--brand)}
+.cta button{background:var(--brand);color:#fff;border:0;border-radius:8px;padding:8px 14px;transition:background-color .15s}
+.cta button:hover{background:var(--brand-h)}
+/* navegador */
+.browser{flex:1;min-width:0;display:flex;flex-direction:column;border-radius:14px;overflow:hidden;border:1px solid var(--line);background:#fff;box-shadow:0 10px 30px #0f1b2614}
+.urlbar{background:#f3f5f8;border-bottom:1px solid var(--line);padding:10px 14px;display:flex;align-items:center;gap:10px}
+.urlbar .dots i{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:6px;background:#cbd5e1}
+.url{flex:1;min-width:0;background:#fff;border:1px solid var(--line);border-radius:999px;padding:7px 16px;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.url mark{background:#fef08a;color:inherit;border-radius:4px;padding:0 2px}
+.lp{flex:1;display:flex;overflow:hidden;min-height:0}
+.lp .hero{flex:1.1;background:linear-gradient(160deg,#0b5d6b,#0e7c8d);color:#fff;padding:40px}
+.lp .hero h3{font-size:34px;margin:8px 0 14px;line-height:1.15}
+.lp .hero li{margin:8px 0;font-size:17px}
+.lp form{flex:1;padding:30px 40px;display:flex;flex-direction:column;gap:11px}
+.field{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted);font-weight:600}
+.field input{width:100%;padding:11px 12px;border:1px solid #c3ccd6;border-radius:9px;font-size:16px;font-weight:400;transition:border-color .15s,box-shadow .15s}
+.field input:hover{border-color:#94a3b8}
+.field input:focus-visible{outline:none;border-color:var(--focus);box-shadow:0 0 0 3px #0ea5b733}
+.field input[aria-invalid="true"]{border-color:var(--bad)}
+.err{color:var(--bad);font-size:13px;font-weight:500}
+.chk{display:flex;gap:10px;align-items:center;font-size:14px;color:var(--ink);font-weight:500;padding:4px 0;cursor:pointer}
+.chk input{width:18px;height:18px;margin:0;accent-color:var(--brand)}
+.ok-box{flex:1;display:none;flex-direction:column;justify-content:center;padding:40px;gap:10px}
+.ok-box h3{font-size:28px;margin:0}
+.side{width:340px;display:flex;flex-direction:column;gap:14px;flex:none}
+/* chat */
+.wa-h{background:var(--chat);color:#fff;padding:10px 14px;display:flex;align-items:center;gap:10px}
+.wa-h .av{width:34px;height:34px;background:#99f6e4;color:var(--chat);display:grid;place-items:center;font-weight:700}
+.wa-b{flex:1;background:#ece5dd;padding:12px;display:flex;flex-direction:column;gap:8px;overflow:hidden}
+.bub{max-width:82%;padding:8px 11px;border-radius:10px;font-size:14px;line-height:1.4;box-shadow:0 1px 1px #0001;overflow-wrap:anywhere}
+.bub.me{align-self:flex-end;background:#d9fdd3}.bub.them{align-self:flex-start;background:#fff}
+.bub small{display:block;font-size:11px;color:#5f6b76;margin-top:3px}
+.wa-in{display:flex;gap:8px;padding:8px;background:#f0f0f0}
+.wa-in input{flex:1;min-width:0;border:0;border-radius:20px;padding:9px 14px;font-size:14px}
+.wa-in button{width:40px;height:40px;border-radius:50%;border:0;background:var(--chat);color:#fff;display:grid;place-items:center;transition:background-color .15s}
+.wa-in button:hover{background:#0b5f58}
+.cam{flex:1;background:radial-gradient(circle at 50% 45%,#3a4a55,#0b0f14);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;color:#fff}
+.vf{width:210px;height:210px;border:3px solid #facc15;border-radius:18px;display:grid;place-items:center;background:#fff1}
+.vf svg{width:150px;height:150px;background:#fff;padding:6px;border-radius:6px}
+.detect{background:#fff;color:var(--ink);border-radius:12px;padding:10px 14px;font-size:13px;display:flex;gap:10px;align-items:center;border:0;text-align:left;transition:box-shadow .15s}
+.detect:hover{box-shadow:0 0 0 3px #facc15}
+.detect b{color:var(--brand)}
+.poster{background:#fff;border-radius:16px;border:1px solid var(--line);padding:22px;display:flex;gap:22px;align-items:center}
+.poster svg{width:170px;height:170px;flex:none}
+.poster h3{margin:6px 0;font-size:24px;line-height:1.2}
+/* atendimento */
+.cw{flex:1;min-width:0;display:flex;border-radius:14px;overflow:hidden;border:1px solid var(--line);background:#fff}
+.cw-nav{width:220px;background:#1c2a36;color:#d3dce3;padding:16px 10px;display:flex;flex-direction:column;gap:4px}
+.cw-nav h3{font-weight:700;color:#fff;padding:4px 10px 12px;font-size:16px;margin:0}
+.cw-nav button{background:none;border:0;text-align:left;padding:9px 10px;border-radius:8px;display:flex;justify-content:space-between;transition:background-color .15s}
+.cw-nav button:hover{background:#26394a}
+.cw-nav button[aria-current="true"]{background:#2f4556;color:#fff}
+.cw-list{width:320px;border-right:1px solid var(--line);overflow:auto;overscroll-behavior:contain}
+.cw-list .it{display:block;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--line);padding:14px 16px;border-left:3px solid transparent;transition:background-color .15s}
+.cw-list .it:hover{background:#f4f9fa}
+.cw-list .it[aria-current="true"]{background:#eaf6f7;border-left-color:var(--brand)}
+.cw-list .it b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cw-conv{flex:1;min-width:0;display:flex;flex-direction:column}
+.cw-conv h3{padding:14px 18px;border-bottom:1px solid var(--line);font-weight:600;font-size:16px;margin:0}
+.cw-msgs{flex:1;background:#f7f9fb;padding:16px;display:flex;flex-direction:column;gap:10px;overflow:hidden}
+.note{align-self:center;background:#fff7e6;border:1px solid #fde4a8;color:#6b4700;font-size:13px;padding:6px 12px;border-radius:8px}
+.cw-in{display:flex;gap:8px;padding:12px;border-top:1px solid var(--line)}
+.cw-in input{flex:1;min-width:0;border:1px solid var(--line);border-radius:9px;padding:10px 12px}
+.cw-side{width:360px;border-left:1px solid var(--line);padding:16px;display:flex;flex-direction:column;gap:12px;overflow:hidden}
+.cw-side h3{margin:0;font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.kv{font-size:14px;line-height:1.55;overflow-wrap:anywhere}
+/* erp */
+.erp{flex:1;min-width:0;display:flex;border-radius:14px;overflow:hidden;border:1px solid #c9ced6;background:#f4f5f7}
+.erp-nav{width:200px;background:#334155;color:#d5dde6;padding:18px 12px;font-size:14px}
+.erp-nav div{padding:9px 10px;border-radius:6px}.erp-nav .on{background:#475569;color:#fff}
+.erp-main{flex:1;min-width:0;padding:22px 28px;display:flex;gap:22px}
+.erp-form{flex:1;min-width:0;background:#fff;border:1px solid #d5dae1;border-radius:8px;padding:20px 24px;display:grid;grid-template-columns:1fr 1fr;gap:14px 20px;align-content:start}
+.erp-form h3{grid-column:1/-1;margin:0 0 4px}
+.erp-form .f{font-size:13px;color:#3f4b5b;font-weight:600;display:flex;flex-direction:column;gap:5px}
+.erp-form input:not([type=checkbox]),.erp-form select{padding:9px 10px;border:1px solid #b9c2cd;border-radius:6px;background-color:#fff}
+.erp-form .ext input{background-color:#fffbea;border-color:#ca8a04;font-weight:700}
+.erp-form .wide{grid-column:1/-1}
+.erp-log{width:420px;display:flex;flex-direction:column;gap:12px}
+/* núcleo */
+.nu{flex:1;min-width:0;display:flex;flex-direction:column;gap:14px;overflow:hidden}
+.tabs{display:flex;gap:6px}
+.tabs button,.people button{border:1px solid var(--line);background:#fff;transition:border-color .15s,background-color .15s}
+.tabs button{border-radius:9px;padding:8px 14px}
+.tabs button:hover,.people button:hover{border-color:var(--brand2)}
+.tabs button[aria-selected="true"]{background:var(--brand);color:#fff;border-color:var(--brand)}
+.people{display:flex;gap:8px;flex-wrap:wrap}
+.people button{border-radius:999px;padding:6px 14px}
+.people button[aria-pressed="true"]{border-color:var(--brand);color:var(--brand);font-weight:600;background:#eef7f8}
+.grid2{display:flex;gap:16px;flex:1;overflow:hidden;min-height:0}
+.tl{display:flex;flex-direction:column;gap:10px;margin:0;padding:0;list-style:none}
+.tl li{display:flex;gap:14px;align-items:flex-start;border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:#fff}
+.tl .dot{width:12px;height:12px;border-radius:50%;margin-top:6px;flex:none}
+table{border-collapse:collapse;width:100%;font-size:15px}
+td,th{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600}
+td.r,th.r{text-align:right}
+.kpis{display:flex;gap:14px}
+.kpi{flex:1}
+.kpi b{display:block;font-size:26px;margin-top:4px;letter-spacing:-.01em}
+.bar{display:flex;align-items:center;gap:10px;margin:7px 0;font-size:14px}
+.bar i{height:14px;border-radius:4px;background:var(--brand2);display:block}
+/* sobreposição e cursor do vídeo */
+#ov{position:fixed;inset:0;background:#0f1b26f5;display:none;place-items:center;z-index:50;color:#e8eef3;overscroll-behavior:contain}
+#ov .box{max-width:1100px;padding:40px}
+#ov h2{font-size:44px;margin:0 0 14px;letter-spacing:-.02em}
+#ov p{font-size:22px;line-height:1.5;color:#cbd8e1}
+#ov .cols{display:flex;gap:40px;margin-top:20px}
+#ov .cols>div{flex:1}
+#ov h3{color:#5eead4;font-size:18px;text-transform:uppercase;letter-spacing:.07em;margin:0 0 6px}
+#cur{position:fixed;left:0;top:0;width:26px;height:26px;z-index:60;pointer-events:none;transform:translate(-60px,-60px);transition:transform .55s cubic-bezier(.4,0,.2,1)}
+#cur::after{content:"";position:absolute;inset:0;border-radius:50%;background:#f59e0b88;border:2px solid #b45309;transition:transform .15s}
+#cur.click::after{transform:scale(.6);background:#f59e0bcc}
+@media (prefers-reduced-motion: reduce){*,*::after{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<a class="skip" href="#conteudo">Pular para o conteúdo</a>
+<header>
+  <div class="logo" aria-hidden="true">CC</div>
+  <h1><span translate="no" style="color:#e8eef3;font-weight:600">Clinic Cursos</span> <span>· fluxo do case em telas</span></h1>
+  <nav id="nav" aria-label="Telas do fluxo">
+    <button data-s="pagina">1 · Anúncio e página</button>
+    <button data-s="celular">2 · QR e WhatsApp</button>
+    <button data-s="atendimento">3 · Atendimento</button>
+    <button data-s="erp">4 · ERP</button>
+    <button data-s="nucleo">5 · Núcleo</button>
+  </nav>
+  <div class="badge">telas de exemplo · dados e regras: API real do case (FastAPI&nbsp;+&nbsp;SQLite)</div>
+</header>
+<div id="cap" aria-live="polite"><div class="n num" id="capN" aria-hidden="true">·</div><div><h2 id="capT">Telas do fluxo</h2><p id="capD">Use as abas para navegar. Tudo o que você grava passa pela API do case.</p></div></div>
+
+<main id="conteudo" tabindex="-1">
+  <!-- 1. anúncio e página -->
+  <section class="screen" id="s-pagina" aria-label="Anúncio e página">
+    <div>
+      <p class="owner" id="adOwner">Celular da Ana · Instagram</p>
+      <div class="phone"><div class="scr feed">
+        <div class="sbar" aria-hidden="true"><span>9:41</span><span>●●● 5G</span></div>
+        <div class="post-h"><div class="av" aria-hidden="true"></div><div><b style="font-size:14px" translate="no">clinic.cursos</b><div class="k">Patrocinado</div></div></div>
+        <div class="creative"><span style="opacity:.9">Turma nova em São Paulo</span><b>Curso de Micropigmentação de Sobrancelhas</b><span style="margin-top:8px">Aulas práticas com modelos reais</span></div>
+        <div class="cta"><span translate="no">clinic.exemplo</span><button id="adCta" type="button">Saiba mais ›</button></div>
+        <p style="padding:10px 14px;font-size:13px;margin:0"><b translate="no">clinic.cursos</b> Últimas vagas para novembro. Certificado e prática supervisionada.</p>
+      </div></div>
+    </div>
+    <div class="browser">
+      <div class="urlbar"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><div class="url mono" id="url" translate="no" aria-label="Endereço da página">aguardando o clique no anúncio…</div></div>
+      <div class="lp" id="lp" style="visibility:hidden">
+        <div class="hero"><span style="opacity:.85">Clinic Cursos · São Paulo</span><h3>Micropigmentação de Sobrancelhas</h3>
+          <ul><li>Prática supervisionada com modelos reais</li><li>Turma de novembro, vagas limitadas</li><li>Certificado da Clinic Cursos</li></ul></div>
+        <form id="lpForm" novalidate>
+          <h3 style="margin:0 0 4px;font-size:22px">Quero informações</h3>
+          <label class="field" for="fNome">Nome<input type="text" id="fNome" name="nome" autocomplete="name" placeholder="Seu nome completo…" aria-describedby="eNome"></label>
+          <span class="err" id="eNome" hidden>Informe seu nome para a consultora te chamar.</span>
+          <label class="field" for="fFone">WhatsApp<input type="tel" id="fFone" name="telefone" autocomplete="tel-national" inputmode="tel" placeholder="(11) 90000-0000…" aria-describedby="eFone"></label>
+          <span class="err" id="eFone" hidden>Informe o WhatsApp com DDD, por exemplo (11) 98765-4321.</span>
+          <label class="field" for="fEmail">E-mail<input type="email" id="fEmail" name="email" autocomplete="email" inputmode="email" spellcheck="false" placeholder="voce@exemplo.com…"></label>
+          <label class="chk" for="fMkt"><input type="checkbox" id="fMkt" name="consent_marketing"> Aceito receber mensagens da Clinic Cursos</label>
+          <label class="chk" for="fAds"><input type="checkbox" id="fAds" name="consent_ads"> Aceito anúncios personalizados (Meta e Google)</label>
+          <button class="btn" id="fEnviar" type="submit">Quero informações</button>
+        </form>
+        <div class="ok-box" id="lpOk" role="status"><h3 id="okT">Pronto!</h3><p style="font-size:17px;color:var(--muted);margin:0">Uma consultora da unidade São Paulo vai te chamar no WhatsApp.</p></div>
+      </div>
+    </div>
+    <div class="side"><div class="card"><h3 class="t3">O que o núcleo gravou</h3><div id="lpRes" aria-live="polite"></div></div></div>
+  </section>
+
+  <!-- 2. QR e WhatsApp -->
+  <section class="screen" id="s-celular" aria-label="QR e WhatsApp">
+    <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:16px">
+      <div class="poster"><div id="qr" role="img" aria-label="QR code que aponta para o /q/ do ponto qr-cps-recepcao-01"></div><div><span class="k">Unidade Campinas · Recepção · ponto <span class="mono" translate="no">qr-cps-recepcao-01</span></span>
+        <h3>Quer ser paciente modelo de micropigmentação?</h3><p style="margin:0;color:var(--muted);font-size:16px">Aponte a câmera e fale com a gente no WhatsApp.</p></div></div>
+      <div class="card" style="flex:1"><h3 class="t3">O que o núcleo gravou</h3><div id="waRes" aria-live="polite"></div></div>
+    </div>
+    <div>
+      <p class="owner" id="waOwner">Celular da Fernanda · câmera</p>
+      <div class="phone"><div class="scr">
+        <div class="sbar" aria-hidden="true"><span>9:41</span><span>●●● 5G</span></div>
+        <div class="cam" id="cam"><div class="vf" id="vf" aria-hidden="true"></div><button class="detect" id="abrirQR" type="button"><span aria-hidden="true">🔗</span><span><b translate="no">clinic.exemplo/q/qr-cps-recepcao-01</b><br>Abrir link</span></button></div>
+        <div id="chat" style="display:none;flex:1;flex-direction:column;min-height:0">
+          <div class="wa-h"><div class="av" aria-hidden="true">CC</div><div><b translate="no">Clinic Cursos</b><div style="font-size:12px;opacity:.9">conta comercial</div></div></div>
+          <div class="wa-b" id="waMsgs" role="log" aria-live="polite"></div>
+          <div class="wa-in"><input id="waInput" aria-label="Mensagem" placeholder="Mensagem…" autocomplete="off"><button id="waSend" type="button" aria-label="Enviar mensagem"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M3 20.5 21 12 3 3.5l2.6 7.1L14 12l-8.4 1.4z"/></svg></button></div>
+        </div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- 3. atendimento -->
+  <section class="screen" id="s-atendimento" aria-label="Atendimento">
+    <div class="cw">
+      <div class="cw-nav" id="cwNav"></div>
+      <div class="cw-list" id="cwList" aria-label="Conversas da fila"></div>
+      <div class="cw-conv"><h3 id="cwHead">Selecione uma conversa</h3><div class="cw-msgs" id="cwMsgs" role="log" aria-live="polite"></div>
+        <form class="cw-in" id="cwForm"><input id="cwInput" aria-label="Resposta para o cliente" placeholder="Responder…" autocomplete="off"><button class="btn" id="cwSend" type="submit" style="padding:9px 16px">Enviar resposta</button></form></div>
+      <div class="cw-side" id="cwSide" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <!-- 4. ERP -->
+  <section class="screen" id="s-erp" aria-label="ERP">
+    <div class="erp">
+      <div class="erp-nav" aria-hidden="true"><div style="color:#fff;font-weight:700;padding:4px 10px 14px">ERP · Gestão</div><div>Alunos</div><div class="on">Matrículas</div><div>Turmas</div><div>Financeiro</div><div>Relatórios</div></div>
+      <div class="erp-main">
+        <form class="erp-form" id="erpForm">
+          <h3>Nova matrícula</h3>
+          <label class="chk wide" for="erpBalcao"><input type="checkbox" id="erpBalcao"> Matrícula de balcão (aberta direto no ERP, sem o botão do atendimento)</label>
+          <label class="f" for="erpAluno">Aluno<input id="erpAluno" name="aluno" autocomplete="off"></label>
+          <label class="f" for="erpCurso">Curso<input id="erpCurso" name="curso" autocomplete="off"></label>
+          <label class="f" for="erpUnidade">Unidade<input id="erpUnidade" name="unidade" autocomplete="off"></label>
+          <label class="f" for="erpTurma">Turma<select id="erpTurma" name="turma"><option>MICRO-SP-2026-11 · início 17/11</option><option>HARMO-RJ-2026-11 · início 24/11</option></select></label>
+          <label class="f" for="erpValor">Valor<input id="erpValor" name="valor" class="num" autocomplete="off"></label>
+          <label class="f" for="erpPag">Pagamento<select id="erpPag" name="pagamento"><option>Cartão em 10x</option><option>Pix</option></select></label>
+          <label class="f ext wide" for="erpOpp">Código externo (oportunidade no CRM)<input id="erpOpp" name="codigo_externo" class="num" readonly inputmode="numeric" spellcheck="false" autocomplete="off" aria-describedby="erpHint"><span class="k" id="erpHint" style="font-weight:400">Veio do botão “Matricular” do atendimento: a vendedora não digita.</span></label>
+          <div class="wide"><button class="btn" id="erpOk" type="submit">Confirmar matrícula</button></div>
+        </form>
+        <div class="erp-log"><div class="card"><h3 class="t3">Integração com o núcleo</h3><div class="k">Cada matrícula confirmada vai para <span class="mono" translate="no">POST /events/erp/sale</span> com o código externo.</div></div><div id="erpRes" aria-live="polite" style="display:flex;flex-direction:column;gap:10px"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. núcleo -->
+  <section class="screen" id="s-nucleo" aria-label="Núcleo">
+    <div class="nu">
+      <div class="tabs" role="tablist" aria-label="Visões do núcleo"><button role="tab" id="tabJ" aria-selected="true" aria-controls="nuJ">Jornada</button><button role="tab" id="tabQ" aria-selected="false" aria-controls="nuQ">Qualidade do rastreamento</button></div>
+      <div id="nuJ" class="grid2" role="tabpanel" aria-labelledby="tabJ"></div>
+      <div id="nuQ" class="grid2" role="tabpanel" aria-labelledby="tabQ" hidden style="display:none"></div>
+    </div>
+  </section>
+</main>
+
+<footer><div class="t">Log do servidor (real) · cada linha é uma requisição que a API do case recebeu</div><div id="log" role="log" aria-live="off"><div class="vazio">Aguardando requisições…</div></div></footer>
+<div id="ov" role="dialog" aria-modal="true" aria-label="Apresentação"><div class="box" id="ovBox"></div></div>
+<div id="cur" aria-hidden="true"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const NOMES = {micropigmentacao: 'Micropigmentação', harmonizacao: 'Harmonização', paciente_modelo: 'Paciente modelo', a_definir: 'a definir'};
+const UNID = {sp: 'São Paulo', rj: 'Rio de Janeiro', cps: 'Campinas', online: 'Online', desconhecida: 'a definir'};
+const QURL = '/q/qr-cps-recepcao-01?utm_source=offline&utm_medium=qr&utm_campaign=cps-paciente_modelo-paciente';
+const ADS = {
+  ana: 'https://clinic.exemplo/lp/micro-sp?utm_source=ig&utm_medium=paid_social&utm_campaign=sp-micropigmentacao-captacao&utm_id=120200000000099&utm_content=video-01&fbclid=IwAR0abc',
+  diego: 'https://clinic.exemplo/lp/micro-sp'
+};
+const SCREENS = ['pagina', 'celular', 'atendimento', 'erp', 'nucleo'];
+const BRL = new Intl.NumberFormat('pt-BR', {style: 'currency', currency: 'BRL'});
+const PCT = new Intl.NumberFormat('pt-BR', {style: 'percent', maximumFractionDigits: 0});
+const HORA = new Intl.DateTimeFormat('pt-BR', {hour: '2-digit', minute: '2-digit'});
+const DATAHORA = new Intl.DateTimeFormat('pt-BR', {day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'});
+let EV = null, adUrl = ADS.ana, phoneMode = 'camera', convs = {}, cw = {fila: 'comercial-sp', sel: null, items: []}, erpOpp = null, nuPerson = null, saleN = 101;
+const api = async (path, body) => {
+  const r = await fetch(path, body ? {method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify(body)} : {});
+  return {status: r.status, json: await r.json()};
+};
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
+const code = s => `<span class="mono" translate="no">${esc(s)}</span>`;
+const chip = (cls, txt) => `<span class="chip ${esc(cls)}">${esc(txt)}</span>`;
+const origemTxt = t => t.origin_type + (t.source_channel ? ' · ' + t.source_channel : t.declared ? ' · ' + t.declared : '');
+const origem = t => t ? chip(t.origin_type, origemTxt(t)) : '';
+const vazio = txt => `<p class="vazio" style="margin:0">${txt}</p>`;
+// botão ocupado: fica habilitado até a requisição começar; durante ela, spinner e rótulo com “…”
+async function busy(btn, label, fn) {
+  const old = btn.innerHTML; btn.disabled = true; btn.setAttribute('aria-busy', 'true');
+  btn.innerHTML = `<span class="spin" aria-hidden="true"></span>${label}`;
+  try { return await fn(); } finally { btn.disabled = false; btn.removeAttribute('aria-busy'); btn.innerHTML = old; }
+}
+
+// legenda, telas e sobreposição (o roteiro do vídeo usa estas funções; as telas também funcionam à mão)
+window.T = {
+  caption(n, t, d) { $('#capN').textContent = n; $('#capT').textContent = t; $('#capD').textContent = d; },
+  go(s) {
+    if (!SCREENS.includes(s)) s = 'pagina';
+    document.querySelectorAll('.screen').forEach(e => e.classList.toggle('on', e.id === 's-' + s));
+    document.querySelectorAll('#nav button').forEach(b => b.dataset.s === s ? b.setAttribute('aria-current', 'page') : b.removeAttribute('aria-current'));
+    if (location.hash !== '#' + s) history.replaceState(null, '', '#' + s);  // a aba fica na URL: dá para abrir direto
+    if (s === 'atendimento') loadCw();
+    if (s === 'nucleo') loadNu();
+  },
+  ad(who) {
+    adUrl = ADS[who]; $('#adOwner').textContent = who === 'ana' ? 'Celular da Ana · Instagram' : 'Celular do Diego · Instagram';
+    $('#url').textContent = 'aguardando o clique no anúncio…'; $('#lp').style.visibility = 'hidden';
+    $('#lpForm').style.display = 'flex'; $('#lpOk').style.display = 'none'; $('#lpForm').reset(); clearErrors();
+    $('#lpRes').innerHTML = vazio(`Nada ainda. O formulário envia para ${code('POST /events/form')}.`);
+  },
+  phone(mode) {
+    phoneMode = mode; $('#waMsgs').innerHTML = ''; $('#waInput').value = '';
+    $('#cam').style.display = mode === 'camera' ? 'flex' : 'none'; $('#chat').style.display = mode === 'camera' ? 'none' : 'flex';
+    $('#waOwner').textContent = mode === 'camera' ? 'Celular da Fernanda · câmera' : 'Celular do Rafa · digitou o número que viu na bio do Instagram';
+    $('#waRes').innerHTML = vazio(`Nada ainda. A Meta entrega a mensagem em ${code('POST /events/whatsapp')} (aqui, o webhook é simulado no mesmo formato).`);
+  },
+  overlay(html) { $('#ovBox').innerHTML = html; $('#ov').style.display = html ? 'grid' : 'none'; },
+  cursor(x, y, click) {
+    const c = $('#cur'); c.style.transform = `translate(${x - 13}px, ${y - 13}px)`;
+    if (click) { c.classList.add('click'); setTimeout(() => c.classList.remove('click'), 180); }
+  }
+};
+document.querySelectorAll('#nav button').forEach(b => b.addEventListener('click', () => T.go(b.dataset.s)));
+addEventListener('hashchange', () => T.go(location.hash.slice(1)));
+
+// 1. anúncio → página → formulário
+$('#adCta').addEventListener('click', () => {
+  const u = new URL(adUrl);
+  $('#url').innerHTML = esc(u.origin + u.pathname) + (u.search ? '?' + [...u.searchParams].map(([k, v]) => `<mark>${esc(k)}=${esc(v)}</mark>`).join('&amp;') : '');
+  $('#lp').style.visibility = 'visible';
+});
+function clearErrors() { for (const id of ['Nome', 'Fone']) { $('#e' + id).hidden = true; $('#f' + id).removeAttribute('aria-invalid'); } }
+$('#lpForm').addEventListener('submit', async e => {
+  e.preventDefault(); clearErrors();
+  const bad = [];
+  if (!$('#fNome').value.trim()) bad.push('Nome');
+  if ($('#fFone').value.replace(/\D/g, '').length < 10) bad.push('Fone');
+  for (const id of bad) { $('#e' + id).hidden = false; $('#f' + id).setAttribute('aria-invalid', 'true'); }
+  if (bad.length) { $('#f' + bad[0]).focus(); return; }
+  const body = {submission_id: 'lp-' + Date.now(), submitted_at: new Date().toISOString(), name: $('#fNome').value.trim(), phone: $('#fFone').value,
+    email: $('#fEmail').value, product: 'micropigmentacao', unit: 'sp', page_url: adUrl, referrer: 'https://l.instagram.com/',
+    consent_marketing: $('#fMkt').checked, consent_ads: $('#fAds').checked};
+  const {json, rep} = await busy($('#fEnviar'), 'Enviando…', async () => ({json: (await api('/events/form', body)).json, rep: (await api('/quality/report')).json}));
+  convs[body.name] = [{nota: `Lead do formulário · ${new URL(adUrl).pathname} · ${HORA.format(new Date())}`}];
+  $('#lpForm').style.display = 'none'; $('#lpOk').style.display = 'flex'; $('#okT').textContent = `Pronto, ${body.name.split(' ')[0]}!`;
+  const alertas = Object.entries(rep.issues_abertas).map(([k, v]) => `${code(k)} (${v})`).join(', ') || 'nenhum';
+  $('#lpRes').innerHTML = `<div class="result"><span class="k">resposta de ${code('POST /events/form')}</span>${chip(json.status, json.status)} &nbsp;oportunidade <span class="num">#${json.opportunity_id}</span><br>
+    origem ${chip(json.origin_type, origemTxt(json))}<br>fila ${code(json.queue)}
+    <span class="k" style="margin-top:8px">${json.origin_type === 'observada' ? 'Prova: as UTMs do link do anúncio.' : 'Sem UTM no link: o núcleo não chuta a origem.'}</span>
+    <span class="k">Alertas abertos: <b>${alertas}</b></span></div>`;
+});
+
+// 2. QR → /q/ → WhatsApp; WhatsApp direto
+const qrSvg = cell => { const q = qrcode(0, 'M'); q.addData('https://clinic.exemplo' + QURL); q.make(); return q.createSvgTag({cellSize: cell, margin: 0, scalable: true}); };
+$('#qr').innerHTML = qrSvg(4); $('#vf').innerHTML = qrSvg(3);
+const bubble = (cls, txt, small) => $('#waMsgs').insertAdjacentHTML('beforeend', `<div class="bub ${cls}">${esc(txt)}${small ? `<small>${small}</small>` : ''}</div>`);
+$('#abrirQR').addEventListener('click', async () => {
+  const r = await fetch(QURL, {headers: {'x-telas': '1'}});
+  if (!r.ok) { $('#waRes').innerHTML = vazio('O /q/ não respondeu. Confira se o servidor está no ar e tente de novo.'); return; }
+  const {location: loc} = await r.json();
+  const text = new URL(loc).searchParams.get('text') || '';
+  $('#cam').style.display = 'none'; $('#chat').style.display = 'flex'; $('#waInput').value = text;
+  $('#waRes').innerHTML = `<div class="result"><span class="k">resposta de ${code('GET ' + QURL.split('?')[0])}</span><span class="num">307</span> → ${code(loc.split('?')[0])}<br>texto pronto: <b>${esc(text)}</b><br><span class="k" style="margin-top:6px">A leitura ficou gravada com o protocolo. Falta a pessoa enviar.</span></div>`;
+});
+async function sendWa() {
+  const text = $('#waInput').value.trim(); if (!text) { $('#waInput').focus(); return; }
+  bubble('me', text, 'agora'); $('#waInput').value = '';
+  EV = EV || (await api('/telas/eventos.json')).json;
+  const tpl = structuredClone(phoneMode === 'camera' ? EV.Q1_whatsapp_protocolo : EV.C2b_whatsapp_direto);
+  const v = tpl.entry[0].changes[0].value, m = v.messages[0];
+  m.id = 'wamid.T' + Date.now(); m.timestamp = String(Math.floor(Date.now() / 1000)); m.text.body = text;
+  const nome = v.contacts[0].profile.name;
+  (convs[nome] = convs[nome] || []).push({de: 'cliente', txt: text});
+  const {json} = await api('/events/whatsapp', tpl);
+  $('#waRes').innerHTML = `<div class="result"><span class="k">resposta de ${code('POST /events/whatsapp')} (webhook no formato da Meta)</span>${chip(json.status, json.status)} &nbsp;oportunidade <span class="num">#${json.opportunity_id}</span><br>
+    origem ${chip(json.origin_type, origemTxt(json))}<br>fila ${code(json.queue)}<br>
+    <span class="k" style="margin-top:8px">${json.origin_type === 'observada' ? 'Prova: o protocolo do texto bate com a leitura do QR.' : 'Sem código nem anúncio: desconhecida, que não é erro. A triagem pergunta como conheceu.'}</span></div>`;
+  const resp = phoneMode === 'camera' ? `Oi, ${nome}! Recebemos seu contato pela recepção de Campinas. A agenda de paciente modelo já vai falar com você.`
+    : 'Oi! Sou a assistente da Clinic. Qual curso e qual unidade te interessam? E como você conheceu a Clinic?';
+  setTimeout(() => { bubble('them', resp, 'resposta automática (exemplo)'); convs[nome].push({de: 'clinic', txt: resp}); }, 1200);
+}
+$('#waSend').addEventListener('click', sendWa);
+$('#waInput').addEventListener('keydown', e => { if (e.key === 'Enter') sendWa(); });
+
+// 3. atendimento (no desenho, o Chatwoot com a lateral que o núcleo preenche)
+async function people() {
+  const ids = (await api('/telas/pessoas')).json;
+  return Promise.all(ids.map(id => api(`/people/${id}/journey`).then(r => r.json)));
+}
+async function loadCw() {
+  const items = [];
+  for (const p of await people()) for (const o of p.oportunidades) {
+    const opp = (await api(`/opportunities/${o.id}`)).json;
+    items.push({p, o, opp, fila: opp.encaminhamentos.at(-1)?.queue || 'sem fila'});
+  }
+  cw.items = items;
+  const filas = ['comercial-sp', 'comercial-rj', 'agenda-cps', 'triagem-bot'];
+  $('#cwNav').innerHTML = '<h3>Atendimento</h3>' + filas.map(f => `<button type="button" data-f="${f}" ${f === cw.fila ? 'aria-current="true"' : ''}><span translate="no">${f}</span><span class="num">${items.filter(i => i.fila === f).length}</span></button>`).join('');
+  $('#cwNav').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { cw.fila = b.dataset.f; cw.sel = null; loadCw(); }));
+  const list = items.filter(i => i.fila === cw.fila);
+  if (!list.some(i => i.o.id === cw.sel)) cw.sel = list[0]?.o.id ?? null;
+  $('#cwList').innerHTML = list.map(i => `<button type="button" class="it" data-o="${i.o.id}" ${i.o.id === cw.sel ? 'aria-current="true"' : ''}><b>${esc(i.p.nome)}</b>
+    <span class="k">${NOMES[i.o.product] || esc(i.o.product)} · ${UNID[i.o.unit] || esc(i.o.unit)}</span><div style="margin-top:6px">${origem(i.opp.toque_atribuido)}</div></button>`).join('')
+    || `<p class="vazio" style="padding:16px;margin:0">Nenhuma conversa nesta fila. Os contatos aparecem aqui quando o núcleo encaminha.</p>`;
+  $('#cwList').querySelectorAll('.it').forEach(e => e.addEventListener('click', () => { cw.sel = +e.dataset.o; loadCw(); }));
+  renderConv();
+}
+function renderConv() {
+  const i = cw.items.find(x => x.o.id === cw.sel);
+  if (!i) { $('#cwHead').textContent = 'Selecione uma conversa'; $('#cwMsgs').innerHTML = ''; $('#cwSide').innerHTML = ''; return; }
+  $('#cwHead').textContent = i.p.nome;
+  const msgs = convs[i.p.nome] || [];
+  $('#cwMsgs').innerHTML = msgs.map(m => m.nota ? `<div class="note">${esc(m.nota)}</div>`
+    : `<div class="bub ${m.de === 'cliente' ? 'them' : 'me'}" style="${m.de === 'cliente' ? '' : 'background:#e0f2f1'}">${esc(m.txt)}</div>`).join('')
+    || `<p class="vazio" style="align-self:center">Sem mensagens nesta conversa ainda.</p>`;
+  const t = i.opp.toque_atribuido;
+  const prova = !t ? '' : t.origin_type === 'observada'
+    ? (t.utm_source ? `UTM ${code(t.utm_source)} / ${code(t.utm_medium)}<br>campanha ${code(t.utm_campaign)}` : `ponto ${code(t.entry_point)} (protocolo da leitura do QR)`)
+    : t.origin_type === 'declarada' ? `a pessoa contou: ${esc(t.declared)}` : 'Sem prova. Pergunte como conheceu: vira declarada, nunca observada.';
+  const cons = (i.p.consentimentos || []).map(c => `${c.purpose}: ${c.granted ? 'sim' : 'não'}`).join(' · ') || 'não informado';
+  $('#cwSide').innerHTML = `<h3>Dados do núcleo</h3><div class="kv"><b style="font-size:17px">${esc(i.p.nome)}</b></div>
+    <div><span class="k">Origem</span><br>${origem(t)}</div><div class="kv"><span class="k">Prova</span><br>${prova}</div>
+    <div class="kv"><span class="k">Oportunidade</span><br><span class="num">#${i.o.id}</span> · ${NOMES[i.o.product] || esc(i.o.product)} · ${UNID[i.o.unit] || esc(i.o.unit)}<br>${chip(i.opp.status, i.opp.status)} ${i.opp.stage ? chip(i.opp.stage, {em_negociacao: 'em negociação'}[i.opp.stage] || i.opp.stage) : ''}</div>
+    <div class="kv"><span class="k">Consentimento</span><br>${cons}</div>
+    <button type="button" class="btn alt" id="btnEtiq">Marcar “Em negociação”</button><button type="button" class="btn" id="btnMat">Matricular no ERP</button>
+    <div class="k" id="cwRes"></div>`;
+  $('#btnEtiq').addEventListener('click', e => busy(e.currentTarget, 'Marcando…', async () => {
+    const {json} = await api('/events/atendimento', {event_id: 'cw-' + Date.now(), crm_opportunity_id: i.o.id, label: 'em_negociacao', origin_system: 'chatwoot'});
+    await loadCw(); $('#cwRes').innerHTML = `${code('POST /events/atendimento')} → ${chip(json.status, json.status)}`;
+  }));
+  $('#btnMat').addEventListener('click', () => { erpOpp = i; $('#erpBalcao').checked = false; erpFill(); T.go('erp'); });
+}
+$('#cwForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const i = cw.items.find(x => x.o.id === cw.sel); const txt = $('#cwInput').value.trim(); if (!i || !txt) return;
+  (convs[i.p.nome] = convs[i.p.nome] || []).push({de: 'clinic', txt}); $('#cwInput').value = ''; renderConv();
+});
+
+// 4. ERP (de exemplo): a matrícula volta ao núcleo com o código externo
+$('#erpValor').value = BRL.format(3490);
+function erpFill() {
+  if ($('#erpBalcao').checked || !erpOpp) {
+    $('#erpAluno').value = 'Juliana Prado'; $('#erpCurso').value = 'Micropigmentação'; $('#erpUnidade').value = 'São Paulo';
+    $('#erpOpp').value = ''; $('#erpOpp').readOnly = false; $('#erpOpp').placeholder = 'Ex.: 12…';
+    $('#erpHint').textContent = 'Matrícula de balcão: o código externo é digitado à mão.'; return;
+  }
+  $('#erpAluno').value = erpOpp.p.nome; $('#erpCurso').value = NOMES[erpOpp.o.product]; $('#erpUnidade').value = UNID[erpOpp.o.unit];
+  $('#erpOpp').value = erpOpp.o.id; $('#erpOpp').readOnly = true; $('#erpOpp').placeholder = '';
+  $('#erpHint').textContent = 'Veio do botão “Matricular” do atendimento: a vendedora não digita.';
+}
+$('#erpBalcao').addEventListener('change', erpFill);
+erpFill();
+$('#erpForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const sale = {erp_sale_id: 'ERP-2026-5' + (saleN++), crm_opportunity_id: $('#erpOpp').value || null, product: 'micropigmentacao',
+    unit: 'sp', amount_cents: 349000, confirmed_at: new Date().toISOString()};
+  if (erpOpp && !$('#erpBalcao').checked) { sale.product = erpOpp.o.product; sale.unit = erpOpp.o.unit; }
+  const {json} = await busy($('#erpOk'), 'Confirmando…', () => api('/events/erp/sale', sale));
+  const msg = json.status === 'quarentena' ? `O núcleo segurou a venda (${code(json.motivo)}). Nada muda até alguém conferir o código externo.`
+    : json.status === 'processado' ? `Oportunidade <span class="num">#${json.opportunity_id}</span> marcada como ganha.` : '';
+  $('#erpRes').insertAdjacentHTML('afterbegin', `<div class="result"><span class="k">${code(sale.erp_sale_id)} · ${esc($('#erpAluno').value)} · código externo <span class="num">${esc(sale.crm_opportunity_id ?? '(vazio)')}</span></span>${chip(json.status, json.status)}<br>${msg}</div>`);
+});
+
+// 5. núcleo: jornada e qualidade
+function tab(which) {
+  for (const [b, p] of [['#tabJ', '#nuJ'], ['#tabQ', '#nuQ']]) {
+    const on = b === which; $(b).setAttribute('aria-selected', on); $(p).hidden = !on; $(p).style.display = on ? 'flex' : 'none';
+  }
+}
+$('#tabJ').addEventListener('click', () => tab('#tabJ'));
+$('#tabQ').addEventListener('click', () => tab('#tabQ'));
+async function loadNu() {
+  const ps = await people();
+  if (!ps.length) { $('#nuJ').innerHTML = vazio('Nenhum contato ainda. Envie o formulário ou uma mensagem nas telas 1 e 2.'); $('#nuQ').innerHTML = $('#nuJ').innerHTML; return; }
+  nuPerson = nuPerson || ps[0].person_id;
+  const p = ps.find(x => x.person_id === nuPerson) || ps[0];
+  const opps = await Promise.all(p.oportunidades.map(o => api(`/opportunities/${o.id}`).then(r => r.json)));
+  const cor = o => o === 'observada' ? 'var(--obs)' : o === 'declarada' ? 'var(--dec)' : 'var(--unk)';
+  $('#nuJ').innerHTML = `<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:12px;overflow:hidden">
+    <div class="people" role="group" aria-label="Contatos">${ps.map(x => `<button type="button" data-p="${x.person_id}" aria-pressed="${x.person_id === p.person_id}">${esc(x.nome)}</button>`).join('')}</div>
+    <div class="card" style="flex:1;overflow:hidden"><h3 style="margin:0 0 4px">${esc(p.nome)}</h3><p class="k" style="margin:0 0 12px">Toques: cada contato é gravado e nunca editado nem apagado</p>
+    <ol class="tl">${p.toques.map(t => `<li><span class="dot" style="background:${cor(t.origin_type)}" aria-hidden="true"></span><div style="flex:1;min-width:0">
+      <b class="num">${DATAHORA.format(new Date(t.occurred_at))}</b> <b>· ${t.contact_channel === 'form' ? 'formulário' : 'WhatsApp'}</b> &nbsp;${origem(t)}
+      <div class="k" style="margin-top:4px">${[t.utm_campaign && 'campanha ' + code(t.utm_campaign), t.entry_point && 'ponto ' + code(t.entry_point), t.click_id_type && code(t.click_id_type), `oportunidade <span class="num">#${t.opportunity_id}</span>`].filter(Boolean).join(' · ')}</div></div></li>`).join('')}</ol></div></div>
+    <div style="width:560px;display:flex;flex-direction:column;gap:12px">${opps.map(o => `<div class="card"><div style="display:flex;justify-content:space-between;gap:10px"><h3 class="t3" style="margin:0">Oportunidade <span class="num">#${o.id}</span> · ${NOMES[o.product] || esc(o.product)} · ${UNID[o.unit] || esc(o.unit)}</h3>${chip(o.status, o.status)}</div>
+      <div class="kv" style="margin-top:8px">${o.vendas.length ? o.vendas.map(v => `Venda ${code(v.erp_sale_id)} · <span class="num">${BRL.format(v.amount_cents / 100)}</span>`).join('<br>') : '<span class="k">Sem venda ainda</span>'}</div>
+      <div class="kv" style="margin-top:6px"><span class="k">Origem atribuída (primeiro toque com prova)</span><br>${origem(o.toque_atribuido)} ${o.toque_atribuido.utm_campaign ? code(o.toque_atribuido.utm_campaign) : ''}</div></div>`).join('')}</div>`;
+  $('#nuJ').querySelectorAll('.people button').forEach(b => b.addEventListener('click', () => { nuPerson = +b.dataset.p; loadNu(); }));
+  const r = (await api('/quality/report')).json;
+  const canais = Object.entries(r.origem_por_canal), max = Math.max(1, ...canais.map(([, v]) => v));
+  const st = {liberado: 'liberado', bloqueado: 'bloqueado', amostra_insuficiente: 'amostra insuficiente'};
+  const alertas = Object.values(r.issues_abertas).reduce((a, b) => a + b, 0);
+  $('#nuQ').innerHTML = `<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:14px;overflow:hidden">
+    <div class="kpis"><div class="card kpi"><span class="k">Vendas</span><b>${r.vendas.total} · ${BRL.format(r.vendas.valor_cents / 100)}</b></div>
+      <div class="card kpi"><span class="k">Receita sem origem</span><b>${BRL.format(r.receita_sem_origem_cents / 100)}</b></div>
+      <div class="card kpi"><span class="k">Receita em quarentena</span><b style="color:${r.receita_em_quarentena_cents ? 'var(--bad)' : 'inherit'}">${BRL.format(r.receita_em_quarentena_cents / 100)}</b></div>
+      <div class="card kpi"><span class="k">Alertas abertos</span><b>${alertas}</b><span class="k">${Object.keys(r.issues_abertas).map(code).join(' · ') || 'nenhum'}</span></div></div>
+    <div class="card" style="flex:1;overflow:hidden"><h3 style="margin:0 0 6px">Pontos de entrada</h3><p class="k" style="margin:0 0 8px">Um ponto só entra no custo por canal quando é liberado: amostra mínima, quase nenhum lead sem origem, tempo mínimo.</p>
+      ${r.pontos_de_entrada.length ? `<table><thead><tr><th scope="col">Ponto</th><th scope="col" class="r">Leads</th><th scope="col" class="r">Desconhecida</th><th scope="col" class="r">Taxa de problema</th><th scope="col">Status</th></tr></thead><tbody>
+      ${r.pontos_de_entrada.map(e => `<tr><td>${code(e.entry_point)}</td><td class="r">${e.total}</td><td class="r">${e.desconhecida}</td><td class="r">${PCT.format(e.taxa_problema)}</td><td>${e.status ? chip(e.status, st[e.status] || e.status) : '<span class="k">sem ponto</span>'}</td></tr>`).join('')}</tbody></table>` : vazio('Nenhum lead ainda.')}</div></div>
+    <div class="card" style="width:520px"><h3 style="margin:0 0 10px">Leads por origem</h3>${canais.length ? canais.map(([k, v]) =>
+      `<div class="bar"><span style="width:220px">${chip(k.split(':')[0], k)}</span><i style="width:${Math.round(200 * v / max)}px" aria-hidden="true"></i><b class="num">${v}</b></div>`).join('') : vazio('Nenhum lead ainda.')}
+      ${Object.keys(r.paciente_modelo.origem_por_canal).length ? `<p class="k" style="margin:14px 0 0">Paciente modelo, em funil próprio: ${Object.entries(r.paciente_modelo.origem_por_canal).map(([k, v]) => `${code(k)} (${v})`).join(', ')}</p>` : ''}</div>`;
+}
+
+// log real do servidor
+let logN = 0;
+setInterval(async () => {
+  try {
+    const novos = (await api('/telas/log?depois=' + logN)).json; if (!novos.length) return;
+    if (!logN) $('#log').innerHTML = ''; logN += novos.length;
+    for (const l of novos) $('#log').insertAdjacentHTML('beforeend', `<div><span class="h">${l.hora}</span>  ${l.metodo.padEnd(4, ' ')} ${esc(l.caminho)}  <span class="${l.status < 300 ? 'ok' : l.status < 400 ? 'warn' : 'err'}">${l.status}</span></div>`);
+    while ($('#log').children.length > 5) $('#log').firstElementChild.remove();
+  } catch (e) {}
+}, 400);
+T.ad('ana'); T.phone('camera'); T.go(location.hash.slice(1));
+</script>
+</body>
+</html>
